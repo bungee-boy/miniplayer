@@ -21,20 +21,52 @@ except ImportError:
 
 SYSTEM = platform.system()
 
-# SETTINGS
+
+# ----- SETTINGS -----
 DEBUG = False  # Enable debugging features
 LOGGING = False  # Enable logging features
-NODERED = '192.168.1.201'  # NodeRed IP address
-FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi
-WIDTH, HEIGHT = 1280, 720  # Width and height of the display / window (default: 480, 320)
+NODERED = '192.168.1.201'  # NodeRed IP address (REQUIRED)
+NODERED_USER = str(hex(get_mac()))  # NodeRed Username (default: str(hex(get_mac())))(MAC Address)
+MQTT_USER = ''  # MQTT username (if required) (default: '')
+MQTT_PASS = ''  # MQTT password (if required) (default: '')
+FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi (default: 16 if SYSTEM == 'Windows' else 8)
+WIDTH, HEIGHT = 480, 320  # Width and height of the display / window (default: 480, 320)
 SCREENSAVER_DELAY = 120000  # Delay in milliseconds before screensaver activates (default: 120000 (2 minutes))
-# END OF SETTINGS
+# ----- SETTINGS -----
+
 
 # UNHANDLED INIT
-if '--debug' in launch_opt:
-    DEBUG = True
-if '--logging' in launch_opt:
-    LOGGING = True
+if len(launch_opt) >= 1:  # LAUNCH OPTIONS
+    if '--debug' in launch_opt:
+        DEBUG = bool(int(launch_opt[launch_opt.index('--debug') + 1]))
+        print('Forced DEBUG to {0}'.format('On' if DEBUG else 'Off'))
+    if '--logging' in launch_opt:
+        LOGGING = bool(int(launch_opt[launch_opt.index('--logging') + 1]))
+        print('Forced LOGGING {0}'.format('On' if LOGGING else 'Off'))
+    if '--nodered' in launch_opt:
+        NODERED = str(launch_opt[launch_opt.index('--nodered') + 1])
+        print('Forced NODERED to {0}'.format(NODERED))
+    if '--noderedusername' in launch_opt:
+        NODERED_USER = str(launch_opt[launch_opt.index('--noderedusername') + 1])
+        print('Forced NODERED_USER to {0}'.format(NODERED_USER))
+    if '--mqttusername' in launch_opt:
+        MQTT_USER = str(launch_opt[launch_opt.index('--mqttusername') + 1])
+        print('Forced MQTT_USER to {0}'.format(MQTT_USER))
+    if '--mqttpassword' in launch_opt:
+        MQTT_PASS = str(launch_opt[launch_opt.index('--mqttpassword') + 1])
+        print('Forced MQTT_PASS to {0}'.format(MQTT_PASS))
+    if '--fps' in launch_opt:
+        FPS = str(launch_opt[launch_opt.index('--fps') + 1])
+        print('Forced FPS to {0}fps'.format(FPS))
+    if '--width' in launch_opt:
+        WIDTH = str(launch_opt[launch_opt.index('--width') + 1])
+        print('Forced WIDTH to {0}px'.format(WIDTH))
+    if '--height' in launch_opt:
+        HEIGHT = str(launch_opt[launch_opt.index('--height') + 1])
+        print('Forced HEIGHT to {0}px'.format(HEIGHT))
+    if '--screensaverdelay' in launch_opt:
+        SCREENSAVER_DELAY = str(launch_opt[launch_opt.index('--screensaverdelay') + 1])
+        print('Forced SCREENSAVER_DELAY to {0}ms'.format(SCREENSAVER_DELAY))
 
 CENTER = WIDTH // 2, HEIGHT // 2
 Button_cooldown = 0
@@ -114,7 +146,7 @@ try:
 except Exception or BaseException as error:
     handle(error, traceback=False)
 
-Img = {
+Img = {  # ASSET DIRECTORIES / PATHS
     'bg': load('assets/bg.png', (480, 320)),
     'icon': load('assets/icon.ico', (32, 32)),
     'menu': {
@@ -243,17 +275,17 @@ class LoadingAni(Window):
             dots.append(pg.surface.Surface((dot_size, dot_size)))
             dots[dot].fill(Colour['key'])
             dots[dot].set_colorkey(Colour['key'])
-            pg.draw.circle(dots[dot], colour, (dot_size / 2, dot_size / 2), dot_size / 2)
+            pg.draw.circle(dots[dot], colour, (dot_size // 2, dot_size // 2), dot_size // 2)
             dots[dot].set_alpha(255 // 8 * dot)
             dots[dot] = dots[dot], dots[dot].get_rect()
-        dots[0][1].center = pos[0], pos[1] - size[1] / 2
-        dots[1][1].center = pos[0] + size[0] / 3, pos[1] - size[1] / 3
-        dots[2][1].center = pos[0] + size[0] / 2, pos[1]
-        dots[3][1].center = pos[0] + size[0] / 3, pos[1] + size[1] / 3
-        dots[4][1].center = pos[0], pos[1] + size[1] / 2
-        dots[5][1].center = pos[0] - size[0] / 3, pos[1] + size[1] / 3
-        dots[6][1].center = pos[0] - size[0] / 2, pos[1]
-        dots[7][1].center = pos[0] - size[0] / 3, pos[1] - size[1] / 3
+        dots[0][1].center = pos[0], pos[1] - size[1] // 2
+        dots[1][1].center = pos[0] + size[0] // 3, pos[1] - size[1] // 3
+        dots[2][1].center = pos[0] + size[0] // 2, pos[1]
+        dots[3][1].center = pos[0] + size[0] // 3, pos[1] + size[1] // 3
+        dots[4][1].center = pos[0], pos[1] + size[1] // 2
+        dots[5][1].center = pos[0] - size[0] // 3, pos[1] + size[1] // 3
+        dots[6][1].center = pos[0] - size[0] // 2, pos[1]
+        dots[7][1].center = pos[0] - size[0] // 3, pos[1] - size[1] // 3
 
         try:
             while not self._event.is_set():
@@ -577,7 +609,7 @@ class SETTINGS(Window):
 
 
 class MQTT(Window):
-    mac_address = str(hex(get_mac()))
+    mac_address = NODERED_USER
 
     def __init__(self):
         super().__init__('MQTT')
@@ -632,6 +664,9 @@ class MQTT(Window):
             self.connected = False
             self._mqtt.loop_stop()
             self._mqtt.reinitialise(self.mac_address)
+            if MQTT_USER and MQTT_PASS:  # If username and password
+                self._mqtt.username_pw_set(MQTT_USER, MQTT_PASS)
+                self.log('Set credentials: {0}, {1}'.format(MQTT_USER, MQTT_PASS))
             self._mqtt.will_set('/miniplayer/connection/{0}'.format(self.mac_address), payload='disconnected')
             self._mqtt.on_message = self._global_response
             self._mqtt.loop_start()
@@ -1076,7 +1111,7 @@ class SPOTIFY(Window):
     def _get_playlists(self):
         self.log('Fetching playlists..')
         try:
-            response = requests.get('http://{0}:1880/spotify/playlists'.format(Mqtt.server), timeout=10)  # Request data
+            response = requests.get('http://{0}:1880/spotify/playlist'.format(Mqtt.server), timeout=10)  # Request data
         except Exception as err:
             self._playlists = []
             self.err('Playlist fetch failed', data=err)
