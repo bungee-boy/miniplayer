@@ -1938,7 +1938,7 @@ if __name__ == '__main__':
         pg.mouse.set_visible(False)
     draw_bg(txt=True)
     pg.display.update()
-    pg.time.wait(1000)
+    pg.time.wait(5000)
     g_temp = None
     if SYSTEM != 'Windows' and pigpio:
         try:

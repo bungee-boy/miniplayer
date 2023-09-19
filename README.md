@@ -1,3 +1,26 @@
+# Miniplayer
+Miniplayer is a python application used to integrate with Node-RED through MQTT.\
+It is designed to be robust, adaptable and fully customisable!
+
+Create your own interactive windows, with built-in settings and window management!
+
+This example shows the data from local sensors and merges it from online sources in Node-RED,
+before displaying all the information using a Raspberry PI LCD with touchscreen!\
+![Miniplayer local weather window screenshot](/docs/images/local_weather.png)\
+Enjoy quickly navigating between windows to get all the latest information,\
+or maybe to control Spotify such as this one!
+![Miniplayer spotify window screenshot](/docs/images/spotify.png)
+
+# Features
++ Works on any device with python (and dependencies) and a screen!
++ Fully customisable, develop your own windows to do anything!
++ Backlight control through GPIO and screensaver options
++ Standardised code to make creating windows easier
++ Automatic MQTT reconnection with animation and authentication
++ Launch options supported instead of or with settings
++ Resilient code, doesn't crash if there are missing assets or errors
+
+
 # Installation
 ## Dependencies
 Stated version numbers have been verified as running.\
