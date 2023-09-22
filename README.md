@@ -121,6 +121,7 @@ Passing an incorrect option will have no effect.
 + `--noderedusername "{Node-RED Username}"` - Forces Node-RED Username (mac by default)
 + `--mqttusername "{MQTT Username}"` - Forces MQTT Username
 + `--mqttpassword "{MQTT Password}"` - Forces MQTT Password
++ `--mqttautoreconnect {Ms delay}` - Forces MQTT auto-reconnect delay
 + `--fps {Frames per second}` - Forces FPS
 + `--width {Screen width}` - Forces screen width
 + `--height {Screen height}` - Forces screen height

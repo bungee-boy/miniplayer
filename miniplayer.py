@@ -26,11 +26,12 @@ SYSTEM = platform.system()
 DEBUG = False  # Enable debugging features
 LOGGING = False  # Enable logging features
 NODERED = '192.168.1.201'  # NodeRed IP address (REQUIRED)
-NODERED_USER = str(hex(get_mac()))  # NodeRed Username (default: str(hex(get_mac())))(MAC Address)
-MQTT_USER = ''  # MQTT username (if required) (default: '')
-MQTT_PASS = ''  # MQTT password (if required) (default: '')
-FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi (default: 16 if SYSTEM == 'Windows' else 8)
-WIDTH, HEIGHT = 480, 320  # Width and height of the display / window (default: 480, 320)
+NODERED_USER = str(hex(get_mac()))  # NodeRed Username (default: str(hex(get_mac())) )(MAC Address)
+MQTT_USER = ''  # MQTT username (if required) (default: '' )
+MQTT_PASS = ''  # MQTT password (if required) (default: '' )
+MQTT_AUTO_RECONNECT = 900000  # MQTT reconnects after ms if no traffic (default: 900000 (15 minutes))
+FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi (default: 16 if SYSTEM == 'Windows' else 8 )
+WIDTH, HEIGHT = 480, 320  # Width and height of the display / window (default: 480, 320 )
 SCREENSAVER_DELAY = 120000  # Delay in milliseconds before screensaver activates (default: 120000 (2 minutes))
 # ----- SETTINGS -----
 
@@ -293,6 +294,7 @@ class LoadingAni(Window):
                     Menu.allow_screensaver = False
 
                 Clock.tick(FPS)
+
                 for event in pg.event.get():
                     if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                         raise KeyboardInterrupt
@@ -617,36 +619,12 @@ class MQTT(Window):
         self.server = NODERED
         self.retained = {}  # {'topic': response()}
         self.subscribed = {}
+        self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
         self._mqtt = mqtt_client.Client(self.mac_address)
         self._mqtt.will_set('/miniplayer/connection/{0}'.format(self.mac_address), payload='disconnected')
         self._mqtt.on_message = self._global_response
         self._mqtt.loop_start()
         self.reconnect_pending = not self.connect()  # If not connected on boot, set to start reconnect.
-
-    @staticmethod
-    def _convert_s(sec: int):
-        minutes = 0
-        hours = 0
-        if sec >= 60:
-            minutes = sec // 60
-            sec -= minutes * 60
-            if sec < 10:
-                sec = '0{0}'.format(sec)
-        elif sec < 10:
-            sec = '0{0}'.format(sec)
-        if minutes >= 60:
-            hours = minutes // 60
-            minutes -= hours * 60
-        if not sec:
-            sec = '00'
-        if not minutes and not hours:
-            minutes = '0'
-        elif not minutes and hours:
-            minutes = '00'
-        if not hours:
-            return str(minutes) + ':' + str(sec)
-        else:
-            return str(hours) + ':' + str(minutes) + ':' + str(sec)
 
     def _set_reconnect(self, client=None, data=None, message=None):
         if client or data or message:
@@ -654,6 +632,7 @@ class MQTT(Window):
         self.reconnect_pending = True
 
     def _global_response(self, client, data, message):
+        self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT  # Update last msg time
         for topic in self.subscribed:
             if topic == message.topic:  # Find corresponding topic
                 self.subscribed[topic](client, data, message)  # Run appropriate response function on data
@@ -700,6 +679,7 @@ class MQTT(Window):
 
             self.send('/miniplayer/connection/{0}'.format(self.mac_address), 'connected')  # If connected
             self.connected = True
+            self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
             self._mqtt.on_disconnect = self._set_reconnect
             Loading_ani.msg, Loading_ani.msg_colour = 'Connected!', Colour['green']
             pg.time.wait(1500)
@@ -729,9 +709,9 @@ class MQTT(Window):
             if self.connected:
                 break
             else:
-                self.log('Waiting for {0}s'.format(self._convert_s(retry_delay)))
+                self.log('Waiting for {0}s'.format(convert_s(retry_delay)))
                 for count in range(0, round(retry_delay)):
-                    Loading_ani.msg = 'Reconnecting (retry in {0})'.format(self._convert_s(retry_delay - count))
+                    Loading_ani.msg = 'Reconnecting (retry in {0})'.format(convert_s(retry_delay - count))
                     pg.time.wait(1000)
                 if retry_delay < 1800:  # Cap at half an hour between attempts
                     retry_delay *= 2
@@ -739,8 +719,6 @@ class MQTT(Window):
                     retry_delay = 1800
 
         self.log('Reconnect complete')
-        Loading_ani.msg, Loading_ani.msg_colour = 'Loading...', Colour['l blue']
-        pg.time.wait(5000)  # Wait 5s for nodered to load
         Loading_ani.stop()
         self.start_retained()
         Menu.start_retained()
@@ -789,6 +767,11 @@ class MQTT(Window):
         msg = str(payload).replace("'", "\"")
         self._mqtt.publish(topic, msg)
         self.log("Sent '{0}' to '{1}'".format(msg, topic))
+
+    def update(self):
+        if self._last_msg_time < pg.time.get_ticks():  # If no msg since auto_reconnect ms
+            self.log('Auto reconnect set', cat='WRN')
+            self._set_reconnect()  # Automatically start reconnect as no traffic sent
 
 
 class LOCALWEATHER(Window):
@@ -983,32 +966,6 @@ class SPOTIFY(Window):
                 new_txt += txt[char]
 
         return new_txt.strip()
-
-    @staticmethod
-    def _convert_ms(ms: int):
-        seconds = ms // 1000
-        minutes = 0
-        hours = 0
-        if seconds >= 60:
-            minutes = seconds // 60
-            seconds -= minutes * 60
-            if seconds < 10:
-                seconds = '0{0}'.format(seconds)
-        elif seconds < 10:
-            seconds = '0{0}'.format(seconds)
-        if minutes >= 60:
-            hours = minutes // 60
-            minutes -= hours * 60
-        if not seconds:
-            seconds = '00'
-        if not minutes and not hours:
-            minutes = '0'
-        elif not minutes and hours:
-            minutes = '00'
-        if not hours:
-            return str(minutes) + ':' + str(seconds)
-        else:
-            return str(hours) + ':' + str(minutes) + ':' + str(seconds)
 
     def _fetch_image(self, url: str):
         response = requests.get(url)  # Request playlists
@@ -1253,9 +1210,9 @@ class SPOTIFY(Window):
                     self.value['playlist_uri'] = self.value['playlist_uri'].replace('spotify:playlist:', '')
                 self.value['song_name'] = self._shorten(self.value['song_name'])
                 self.value['duration_ms'] = int(self.value['duration_ms'])
-                self.value.update({'duration': self._convert_ms(self.value['duration_ms'])})
+                self.value.update({'duration': convert_s(self.value['duration_ms'] // 1000)})
                 self.value['progress_ms'] = int(self.value['progress_ms'])
-                self.value.update({'progress': self._convert_ms(self.value['progress_ms'])})
+                self.value.update({'progress': convert_s(self.value['progress_ms'] // 1000)})
                 self.value['album']['name'] = self._shorten(self.value['album']['name'])
 
                 # If current song is in playlist
@@ -1452,10 +1409,10 @@ class SPOTIFY(Window):
                 self.value['progress_ms'] + 1000 < self.value['duration_ms']:
             self._update_ms = pg.time.get_ticks()
             self.value['progress_ms'] += 1000
-            self.value['progress'] = self._convert_ms(self.value['progress_ms'])
+            self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
         elif self.value['progress_ms'] + 1000 >= self.value['duration_ms']:
             self.value['progress_ms'] = self.value['duration_ms']
-            self.value['progress'] = self._convert_ms(self.value['progress_ms'])
+            self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
 
         # CONTROLS
         action = None
@@ -1574,31 +1531,6 @@ class OCTOPRINT(Window):
         self.printing = False
         self._load_default()
         Menu.windows.append(self)
-
-    @staticmethod
-    def _convert_secs(seconds: int):
-        minutes = 0
-        hours = 0
-        if seconds >= 60:
-            minutes = seconds // 60
-            seconds -= minutes * 60
-            if seconds < 10:
-                seconds = '0{0}'.format(seconds)
-        elif seconds < 10:
-            seconds = '0{0}'.format(seconds)
-        if minutes >= 60:
-            hours = minutes // 60
-            minutes -= hours * 60
-        if not seconds:
-            seconds = '00'
-        if not minutes and not hours:
-            minutes = '0'
-        elif not minutes and hours:
-            minutes = '00'
-        if not hours:
-            return str(minutes) + ':' + str(seconds)
-        else:
-            return str(hours) + ':' + str(minutes) + ':' + str(seconds)
 
     def _load_default(self):
         self._data = {
@@ -1757,6 +1689,31 @@ class OCTOPRINT(Window):
 
     def update(self):
         Menu.allow_screensaver = not self.printing
+
+
+def convert_s(sec: int):
+    minutes = 0
+    hours = 0
+    if sec >= 60:
+        minutes = sec // 60
+        sec -= minutes * 60
+        if sec < 10:
+            sec = '0{0}'.format(sec)
+    elif sec < 10:
+        sec = '0{0}'.format(sec)
+    if minutes >= 60:
+        hours = minutes // 60
+        minutes -= hours * 60
+    if not sec:
+        sec = '00'
+    if not minutes and not hours:
+        minutes = '0'
+    elif not minutes and hours:
+        minutes = '00'
+    if not hours:
+        return str(minutes) + ':' + str(sec)
+    else:
+        return str(hours) + ':' + str(minutes) + ':' + str(sec)
 
 
 def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs):
@@ -1918,6 +1875,7 @@ def main():
 
                 Current_window.update()
                 Menu.update()
+            Mqtt.update()  # Update mqtt every loop
         except KeyboardInterrupt:
             return
         except (Exception, BaseException) as err:
@@ -1930,6 +1888,20 @@ def main():
 
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
+
+
+def quit_all():
+    if Loading_ani:
+        Loading_ani.stop()
+    if Settings.active:
+        Settings.save()
+    Menu.stop()
+    if Backlight:
+        Backlight.stop()
+    if Mqtt.connected:
+        Mqtt.disconnect()
+    pg.quit()
+    quit()
 
 
 # RUN
@@ -1985,17 +1957,7 @@ if __name__ == '__main__':
         try:
             main()
         except KeyboardInterrupt:
-            if Loading_ani:
-                Loading_ani.stop()
-            if Settings.active:
-                Settings.save()
-            Menu.stop()
-            if Backlight:
-                Backlight.stop()
-            if Mqtt.connected:
-                Mqtt.disconnect()
-            pg.quit()
-            quit()
+            quit_all()
     else:
         try:
             main()
@@ -2006,14 +1968,4 @@ if __name__ == '__main__':
         except:
             print('main() Unhandled exception -> unknown')
         finally:
-            if Loading_ani:
-                Loading_ani.stop()
-            if Settings.active:
-                Settings.save()
-            Menu.stop()
-            if Backlight:
-                Backlight.stop()
-            if Mqtt.connected:
-                Mqtt.disconnect()
-            pg.quit()
-            quit()
+            quit_all()
