@@ -25,11 +25,18 @@ SYSTEM = platform.system()
 # ----- SETTINGS -----
 DEBUG = False  # Enable debugging features
 LOGGING = False  # Enable logging features
-NODERED = '192.168.1.201'  # NodeRed IP address (REQUIRED)
+
+NODERED_IP = '192.168.1.201'  # NodeRed IP address (REQUIRED)
+NODERED_PORT = 1880  # NodeRed Port (default: 1880 )
 NODERED_USER = str(hex(get_mac()))  # NodeRed Username (default: str(hex(get_mac())) )(MAC Address)
+
+MQTT_IP = '192.168.1.201'  # MQTT IP address (REQUIRED)
+MQTT_PORT = 1883  # MQTT Port (default: 1883 )
 MQTT_USER = ''  # MQTT username (if required) (default: '' )
 MQTT_PASS = ''  # MQTT password (if required) (default: '' )
 MQTT_AUTO_RECONNECT = 900000  # MQTT reconnects after ms if no traffic (default: 900000 (15 minutes))
+
+BACKLIGHT_CONTROL = False  # Enable backlight control through GPIO pins (Requires pigpio!)
 FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi (default: 16 if SYSTEM == 'Windows' else 8 )
 WIDTH, HEIGHT = 480, 320  # Width and height of the display / window (default: 480, 320 )
 SCREENSAVER_DELAY = 120000  # Delay in milliseconds before screensaver activates (default: 120000 (2 minutes))
@@ -78,6 +85,7 @@ Loaded_fonts = {}
 Colour = {'key': (1, 1, 1), 'black': (0, 0, 0), 'white': (255, 255, 255), 'grey': (155, 155, 155),
           'd grey': (80, 80, 80), 'red': (251, 105, 98), 'yellow': (252, 252, 153), 'l green': (121, 222, 121),
           'green': (18, 115, 53), 'amber': (200, 140, 0), 'l blue': (3, 140, 252)}
+Info = '', Colour['white'], 2000  # txt, colour, ms
 Last_err = None
 Display = None
 Clock = None
@@ -180,23 +188,24 @@ Bg = pg.transform.scale(Img['bg'], Display.get_size())
 Bg.set_alpha(130)
 pg.display.set_icon(Img['icon'])
 
-try:
-    if LOGGING:
-        with open('miniplayer.log', 'a') as log:
-            log.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
+if __name__ == '__main__':
+    try:
+        if LOGGING:
+            with open('miniplayer.log', 'a') as log:
+                log.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
+                if DEBUG:
+                    log.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
+        with open('miniplayer.err.log', 'a') as error:
+            error.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
             if DEBUG:
-                log.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
-    with open('miniplayer.err.log', 'a') as error:
-        error.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
-        if DEBUG:
-            error.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
+                error.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
 
-except (Exception, BaseException) as error:
-    handle(error, save=False)  # Do not save as error with logging
-    LOGGING = False
-except:
-    print('Failed to start log -> unknown')
-    LOGGING = False
+    except (Exception, BaseException) as error:
+        handle(error, save=False)  # Do not save as error with logging
+        LOGGING = False
+    except:
+        print('Failed to start log -> unknown')
+        LOGGING = False
 
 
 # CLASSES
@@ -267,6 +276,7 @@ class LoadingAni(Window):
         self.msg_colour = None
 
     def ani(self, pos=CENTER, colour=Colour['white'], size=(100, 100), dot_size=20, speed=18):
+        surf = Display
         self._running = True
         self._event = threading.Event()
         prev_frame_timestamp = pg.time.get_ticks()
@@ -311,20 +321,20 @@ class LoadingAni(Window):
                         dot[0].set_alpha(alpha)
                     prev_frame_timestamp = pg.time.get_ticks()
 
-                Display.fill(Colour['black'])
-                Display.blit(Bg, (0, 0))
-                Display.blit(dots[0][0], dots[0][1].topleft)
-                Display.blit(dots[1][0], dots[1][1].topleft)
-                Display.blit(dots[2][0], dots[2][1].topleft)
-                Display.blit(dots[3][0], dots[3][1].topleft)
-                Display.blit(dots[4][0], dots[4][1].topleft)
-                Display.blit(dots[5][0], dots[5][1].topleft)
-                Display.blit(dots[6][0], dots[6][1].topleft)
-                Display.blit(dots[7][0], dots[7][1].topleft)
+                surf.fill(Colour['black'])
+                surf.blit(Bg, (0, 0))
+                surf.blit(dots[0][0], dots[0][1].topleft)
+                surf.blit(dots[1][0], dots[1][1].topleft)
+                surf.blit(dots[2][0], dots[2][1].topleft)
+                surf.blit(dots[3][0], dots[3][1].topleft)
+                surf.blit(dots[4][0], dots[4][1].topleft)
+                surf.blit(dots[5][0], dots[5][1].topleft)
+                surf.blit(dots[6][0], dots[6][1].topleft)
+                surf.blit(dots[7][0], dots[7][1].topleft)
                 if self.msg:
                     self.msg_colour = Colour['white'] if not self.msg_colour else self.msg_colour
-                    Display.blit(*render_text(self.msg, 20, colour=self.msg_colour, bold=True,
-                                              midtop=(pos[0], pos[1] + size[1])))
+                    surf.blit(*render_text(self.msg, 20, colour=self.msg_colour, bold=True,
+                                           midtop=(pos[0], pos[1] + size[1])))
                 pg.display.update()
 
             self.thread = threading.Thread(target=self.ani)
@@ -371,7 +381,7 @@ class BACKLIGHT(Window):
 
     def __init__(self):
         super().__init__('Backlight')
-        if SYSTEM != 'Windows' and pigpio:
+        if BACKLIGHT_CONTROL and pigpio:
             self._pi = pigpio.pi()
             self._pi.set_mode(self.pin, pigpio.OUTPUT)
         self.brightness = 0
@@ -394,13 +404,13 @@ class BACKLIGHT(Window):
 
     def set(self, brightness: int):
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
-        if SYSTEM != 'Windows':
+        if BACKLIGHT_CONTROL:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
         self.log('Set brightness to {0}'.format(self.brightness))
 
     def stop(self):
         self.set(0)
-        if SYSTEM != 'Windows':
+        if BACKLIGHT_CONTROL:
             self._pi.stop()
         self.log('Backlight stopped')
 
@@ -576,7 +586,7 @@ class SETTINGS(Window):
         close = render_text('Close', 20, bold=True, midleft=(reconnect[1].x, reconnect[1].bottom + 40))
         surf.blit(*close)
         # MQTT INFO
-        surf.blit(*render_text('Connection: {0}   Username: {1}'.format(Mqtt.server, Mqtt.mac_address),
+        surf.blit(*render_text('Connection: {0}   Username: {1}'.format(MQTT_IP, Mqtt.mac_address),
                                15, bold=True, midbottom=(CENTER[0], HEIGHT - 3)))
 
         screensaver = render_button(self.value['Screensaver'], center=(200, screensaver[1].centery))
@@ -593,19 +603,24 @@ class SETTINGS(Window):
             self.active = False
             Menu.allow_screensaver = True
             self.save()
-        elif screensaver.collidepoint(Mouse_pos):
+        elif screensaver.collidepoint(Mouse_pos):  # Screensaver
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.value['Screensaver'] = False if self.value['Screensaver'] else True
-        elif device_info.collidepoint(Mouse_pos):
+        elif device_info.collidepoint(Mouse_pos):  # Device info
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.value['Device Info'] = False if self.value['Device Info'] else True
-        elif playlists.collidepoint(Mouse_pos):
+        elif playlists.collidepoint(Mouse_pos):  # Reload
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            Spotify.reload_playlists()
-        elif reconnect.collidepoint(Mouse_pos):
+            self.active = False  # Close settings automatically
+            if Spotify.reload_playlists():
+                set_info('Reloaded playlists')
+            else:
+                set_info('Playlist reload failed!', Colour['red'])
+        elif reconnect.collidepoint(Mouse_pos):  # Reconnect
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+            self.active = False  # Close settings automatically
             Mqtt.reconnect()
-        elif close.collidepoint(Mouse_pos):
+        elif close.collidepoint(Mouse_pos):  # Close
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             raise KeyboardInterrupt('Close button pressed')
 
@@ -616,7 +631,6 @@ class MQTT(Window):
     def __init__(self):
         super().__init__('MQTT')
         self.connected = False
-        self.server = NODERED
         self.retained = {}  # {'topic': response()}
         self.subscribed = {}
         self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
@@ -649,18 +663,18 @@ class MQTT(Window):
             self._mqtt.will_set('/miniplayer/connection/{0}'.format(self.mac_address), payload='disconnected')
             self._mqtt.on_message = self._global_response
             self._mqtt.loop_start()
-            self.log("Connecting to '{0}' with username '{1}'".format(self.server, self.mac_address))
+            self.log("Connecting to '{0}' with username '{1}'".format(MQTT_IP, self.mac_address))
             if ani:
                 Loading_ani.start(msg='Connecting...', msg_colour=Colour['amber'])
             else:
                 Loading_ani.msg, Loading_ani.msg_colour = 'Connecting...', Colour['amber']
             temp = timer()
             try:
-                self._mqtt.connect(self.server)  # Start connection
+                self._mqtt.connect(MQTT_IP, port=MQTT_PORT)  # Start connection
                 while not self._mqtt.is_connected():  # Wait for MQTT to connect
                     pg.time.wait(250)
                     if round(timer() - temp, 2) >= 10:  # Timeout after 10s
-                        self.err('Connection to {0} failed: Timed out'.format(self.server),
+                        self.err('Connection to {0} failed: Timed out'.format(MQTT_IP),
                                  data="username={0}".format(self.mac_address))
                         Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                         pg.time.wait(1500)
@@ -669,7 +683,7 @@ class MQTT(Window):
                         return False
 
             except Exception as err:  # If failure to connect
-                self.err('Connection to {0} failed: {1}'.format(self.server, err),
+                self.err('Connection to {0} failed: {1}'.format(MQTT_IP, err),
                          data="username={0}".format(self.mac_address))
                 Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                 pg.time.wait(1500)
@@ -685,7 +699,7 @@ class MQTT(Window):
             pg.time.wait(1500)
             if ani:
                 Loading_ani.stop()
-            self.log("Connected to '{0}' with username '{1}'".format(self.server, self.mac_address))
+            self.log("Connected to '{0}' with username '{1}'".format(MQTT_IP, self.mac_address))
             return True
 
     def disconnect(self):
@@ -815,10 +829,10 @@ class LOCALWEATHER(Window):
     def get_icon(self, icon: str):
         try:
             self.icon = pg.image.load(io.BytesIO(requests.get(
-                'http://{0}:1880/weather/icon?id={1}'.format(Mqtt.server, icon)).content))
+                'http://{0}:{1}/weather/icon?id={2}'.format(NODERED_IP, NODERED_PORT, icon)).content))
             self.icon = self.icon, self.icon.get_rect(topleft=(70, 40))
         except:
-            self.err('Failed to load icon')
+            self.err('Failed to load icon', data='id={0}'.format(icon))
             self.icon = Img['l weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
 
     def receive(self, client, data, message):
@@ -862,13 +876,13 @@ class LOCALWEATHER(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: {0}'.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
     def start(self):
@@ -916,7 +930,7 @@ class LOCALWEATHER(Window):
         surf.blit(*render_bar((140, 10), self.value['vis'], 0, 100, fill_color=Colour['grey'],
                               midtop=(self._data['vis'][1].centerx, self._data['vis'][1].bottom + 10)))
         surf.blit(*render_text(self.timestamp, 15, self._timestamp_color,
-                               bold=True if self.timestamp == 'ERR' else False, bottomleft=(5, HEIGHT - 3)))
+                               bold=True if 'ERR' in self.timestamp else False, bottomleft=(5, HEIGHT - 3)))
 
     def update(self):
         if ((not Mqtt.connected or self._mqtt_response not in Mqtt.subscribed) and
@@ -1065,14 +1079,14 @@ class SPOTIFY(Window):
             'volume_percent': 0
         }
 
-    def _get_playlists(self):
+    def _get_playlists(self) -> bool:
         self.log('Fetching playlists..')
-        try:
-            response = requests.get('http://{0}:1880/spotify/playlist'.format(Mqtt.server), timeout=10)  # Request data
+        try:  # Request data from NodeRed
+            response = requests.get('http://{0}:{1}/spotify/playlists'.format(NODERED_IP, NODERED_PORT), timeout=10)
         except Exception as err:
             self._playlists = []
             self.err('Playlist fetch failed', data=err)
-            return
+            return False
 
         if response.status_code == 200:
             self.log('Playlists fetched successfully')
@@ -1140,18 +1154,22 @@ class SPOTIFY(Window):
                         self.log('Loaded cache (id:{0})'.format(playlist['id']))
 
                 self.log('Loaded playlist images (took {0}s)'.format(round(timer() - temp, 2)))
+                return True
 
             except Exception as err:
                 self._playlists = []
                 handle(err)
                 self.err('Playlist ordering failed')
+                return False
         else:
             self._playlists = []
-            self.err('Playlist fetch failed (code={0})'.format(response.status_code))
+            self.err('Playlist fetch failed (code={0} url={1})'.format(
+                response.status_code, 'http://{0}:{1}/spotify/playlists'.format(NODERED_IP, NODERED_PORT)))
+            return False
 
     def _update_playlists(self, uid: str):
-        response = requests.get('http://{0}:1880/spotify/playlists?id={1}'.format(Mqtt.server, uid))  # Fetch playlist
-        if response.status_code == 200:
+        response = requests.get('http://{0}:{1}/spotify/playlists?id={2}'.format(NODERED_IP, NODERED_PORT, uid))
+        if response.status_code == 200:  # Fetch playlist
             try:
                 playlist = json.load(io.BytesIO(response.content))  # Decode response
                 if playlist['id'] == 'spotify:user:ag.bungee:collection':
@@ -1169,7 +1187,7 @@ class SPOTIFY(Window):
                 return False
         else:
             if response.status_code != 500:
-                self.err('Failed to update playlist (code={0}, id={1})'.format(response.status_code, uid))
+                self.err('Failed to update playlists (code={0}, id={1})'.format(response.status_code, uid))
             return False
 
     def _save_playlists(self):
@@ -1179,10 +1197,10 @@ class SPOTIFY(Window):
         Settings.value['Playlist Order'] = temp
         Settings.save()
 
-    def reload_playlists(self):
+    def reload_playlists(self) -> bool:
         self._playlists = []
         self._active_playlist = None
-        self._get_playlists()
+        return self._get_playlists()
 
     def receive(self, client, data, message):
         if data or client:
@@ -1237,20 +1255,19 @@ class SPOTIFY(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: {0}'.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
         elif message.topic == self._mqtt_device_response:
             try:
                 self.device_value = json.loads(message.payload.decode('utf-8'))
-                self.device_value['name'] = \
-                    self.device_value['name'].lower().title().replace('-', ' '.replace('Anthonys', "Anthony's"))
+                self.device_value['name'] = self.device_value['name'].lower().title()
 
                 self.timestamp = strftime('%H:%M')
                 if self._timestamp_color != Colour['green']:
@@ -1260,13 +1277,13 @@ class SPOTIFY(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: {0}'.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error 2 -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
     def start(self):
@@ -1389,9 +1406,11 @@ class SPOTIFY(Window):
                           floor(len(self._playlists) / len(self._data['plist_rect'])) else 0],
                           self._data['plist']['scroll_d'][2])
 
-        if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:
-            surf.blit(*render_text('Action timed out!', 16, Colour['red'], bold=True, midbottom=(CENTER[0], HEIGHT)))
-        if not self.show_playlists:
+        if Settings.value['Device Info']:
+            surf.blit(*render_text(self.device_value['name'], 15, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
+        if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:  # Action status
+            set_info('Action timed out!', Colour['red'])
+        if not self.show_playlists:  # Timestamp
             surf.blit(*render_text(self.timestamp, 15, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
 
     def update(self):
@@ -1467,6 +1486,7 @@ class SPOTIFY(Window):
                 self.device_value['volume_percent'] < self._prev_value or \
                 self._pending_action == 'shuffle' and self.value['shuffle'] != self._prev_value:
             self.log('{0} confirmed'.format(self._pending_action.title()))
+            set_info('{0} confirmed'.format(self._pending_action.title().replace('_', ' ')))
             self._action_time = 0
             self._prev_value = None
             self._pending_action = None
@@ -1601,13 +1621,13 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: {0}'.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error (state) -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
         elif message.topic == self._mqtt_responses[1]:
@@ -1623,13 +1643,13 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: '.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error (pos) -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
         elif message.topic == self._mqtt_responses[2]:
@@ -1644,13 +1664,13 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: {0}'.format(err)
                 self._load_default()
             except:
                 self.err('MQTT receive error (temp) -> unknown')
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR'
+                    self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
     def start(self):
@@ -1822,6 +1842,12 @@ def draw_bg(txt=False, surf=Display):
         surf.blit(*render_text('v2.0', 16, midtop=(txt[1].centerx, txt[1].bottom + 10)))
 
 
+def set_info(txt: str, colour=Colour['green'], timeout=2000):
+    global Info  # txt, colour, ms
+    if not Info[0] or Info[2] < pg.time.get_ticks():  # If not showing or timeout
+        Info = txt, colour, pg.time.get_ticks() + timeout
+
+
 def main():
     global Current_window, Button_cooldown, Mouse_pos, Prev_mouse_pos
     while True:  # Forever loop
@@ -1886,6 +1912,8 @@ def main():
         if pg.time.get_ticks() >= Button_cooldown:  # Button cooldown reset
             Button_cooldown = 0
 
+        if Info[0] and Info[2] > pg.time.get_ticks():  # Show info
+            Display.blit(*render_text(Info[0], 15, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT)))
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
 
