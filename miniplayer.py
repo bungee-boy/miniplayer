@@ -36,6 +36,7 @@ MQTT_USER = ''  # MQTT username (if required) (default: '' )
 MQTT_PASS = ''  # MQTT password (if required) (default: '' )
 MQTT_AUTO_RECONNECT = 900000  # MQTT reconnects after ms if no traffic (default: 900000 (15 minutes))
 
+TOUCHSCREEN = False  # Enable touchscreen mode (hides cursor, no clicking ect)
 BACKLIGHT_CONTROL = False  # Enable backlight control through GPIO pins (Requires pigpio!)
 FPS = 16 if SYSTEM == 'Windows' else 8  # 16fps on Windows, 8 on Pi (default: 16 if SYSTEM == 'Windows' else 8 )
 WIDTH, HEIGHT = 480, 320  # Width and height of the display / window (default: 480, 320 )
@@ -78,7 +79,7 @@ if len(launch_opt) >= 1:  # LAUNCH OPTIONS
 
 CENTER = WIDTH // 2, HEIGHT // 2
 Button_cooldown = 0
-Button_cooldown_length = 100 if SYSTEM == 'Windows' else 500
+Button_cooldown_length = 500 if TOUCHSCREEN else 100
 Mouse_pos = -1, -1
 Prev_mouse_pos = -2, -2
 Loaded_fonts = {}
@@ -492,8 +493,8 @@ class MENU(Window):
             self.log('Stopped screensaver')
 
         # Page navigation
-        if (SYSTEM == 'Windows' and not pg.mouse.get_pressed()[0] or
-                SYSTEM != 'Windows' and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
+        if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
+                TOUCHSCREEN and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
             return
         settings = self.settings[1] if self.windows.index(Current_window) < len(self.windows) - 1 else self.right[1]
         if settings.collidepoint(Mouse_pos):  # Settings
@@ -595,8 +596,8 @@ class SETTINGS(Window):
         reconnect = render_button(Colour['amber'], center=(410, reconnect[1].centery))
         close = render_button(Colour['red'], center=(410, close[1].centery))
 
-        if (SYSTEM == 'Windows' and not pg.mouse.get_pressed()[0] or
-                SYSTEM != 'Windows' and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
+        if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
+                TOUCHSCREEN and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
             return
         elif Menu.right[1].collidepoint(Mouse_pos):
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
@@ -1436,8 +1437,8 @@ class SPOTIFY(Window):
         # CONTROLS
         action = None
         if not Settings.active and not self.show_playlists and not Button_cooldown and (
-                SYSTEM == 'Windows' and pg.mouse.get_pressed()[0] or
-                SYSTEM != 'Windows' and pg.mouse.get_pos() != Prev_mouse_pos):
+                not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
+                TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
             if self._data['center'].collidepoint(Mouse_pos):
                 action = 'pause' if self.value['is_playing'] else 'play'
                 self._prev_value = self.value['is_playing']
@@ -1499,8 +1500,8 @@ class SPOTIFY(Window):
             self._pending_action = None
 
         if self.show_playlists:
-            if not Button_cooldown and (SYSTEM == 'Windows' and pg.mouse.get_pressed()[0] or
-                                        SYSTEM != 'Windows' and pg.mouse.get_pos() != Prev_mouse_pos):
+            if not Button_cooldown and (not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
+                                        TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
                 if Menu.right[1].collidepoint(Mouse_pos):  # PLAYLIST (close)
                     Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                     self._save_playlists()
@@ -1934,7 +1935,7 @@ def quit_all():
 
 # RUN
 if __name__ == '__main__':
-    if SYSTEM != 'Windows':
+    if TOUCHSCREEN:
         pg.mouse.set_visible(False)
     draw_bg(txt=True)
     pg.display.update()
