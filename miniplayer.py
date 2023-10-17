@@ -107,7 +107,7 @@ pg.init()
 
 def handle(err: Exception or BaseException, save=True, repeat=False, traceback=True):
     global Last_err
-    if type(err) == KeyboardInterrupt:
+    if err is KeyboardInterrupt:
         return
     msg = '{0}: {1}'.format(str(type(err)).replace("<class '", '').replace("'>", ''), err)
     if not repeat and msg == Last_err:
@@ -739,7 +739,7 @@ class MQTT(Window):
         Menu.start_retained()
 
     def subscribe(self, topics: str or tuple, response, retain=False):
-        if type(topics) == str:
+        if topics is str:
             topics = [topics]
         for topic in topics:
             if topic not in self.subscribed:
@@ -758,7 +758,7 @@ class MQTT(Window):
             self.subscribed = {}
             self.log('Unsubscribed from all topics.')
         else:
-            if type(topics) == str:  # If only one topic then pass as list
+            if topics is str:  # If only one topic then pass as list
                 topics = [topics]
 
             for topic in topics:
@@ -1268,7 +1268,7 @@ class SPOTIFY(Window):
         elif message.topic == self._mqtt_device_response:
             try:
                 self.device_value = json.loads(message.payload.decode('utf-8'))
-                self.device_value['name'] = self.device_value['name'].lower().title()
+                self.device_value['name'] = self.device_value['name'].lower().title().replace("'S", "'s")
 
                 self.timestamp = strftime('%H:%M')
                 if self._timestamp_color != Colour['green']:
@@ -1798,7 +1798,7 @@ def render_button(state: bool or tuple[int, int, int] or None, surf=Display, **k
     shade.fill(Colour['key'])
     shade.set_colorkey(Colour['key'])
     shade.set_alpha(100)
-    if type(state) == tuple:
+    if state is tuple:
         color = state
     else:
         if state:
@@ -1814,10 +1814,10 @@ def render_button(state: bool or tuple[int, int, int] or None, surf=Display, **k
     surf.blit(shade, rect.topleft)
 
     # nub
-    if state and type(state) == bool:
+    if state and state is bool:
         pg.draw.circle(surface, Colour['white'], (48, 16), 12, width=2)
         pg.draw.circle(surface, Colour['green'], (48, 16), 10)
-    elif state is None or type(state) == tuple:
+    elif state is None or state is tuple:
         pg.draw.circle(surface, Colour['white'], (16, 16), 12, width=2, draw_top_left=True, draw_bottom_left=True)
         surface.blit(*render_text('Press', 15, bold=True, center=surface.get_rect().center))
         pg.draw.circle(surface, Colour['white'], (48, 16), 12, width=2, draw_top_right=True, draw_bottom_right=True)
@@ -1887,16 +1887,16 @@ def main():
                 Display.fill(Colour['black'])
                 txt = render_text('Miniplayer v2', 20, Colour['d grey'], center=CENTER)
                 Display.blit(*txt)
-                if type(Current_window) == LOCALWEATHER:
+                if Current_window is LOCALWEATHER:
                     txt2 = render_text(Current_window.value['state'], 25, Colour['d grey'],
                                        midtop=(txt[1].centerx, txt[1].bottom + 15))
                     Display.blit(*txt2)
                     Display.blit(*render_text(Current_window.value['temp']['real'], 25, Colour['d grey'],
                                               midtop=(txt2[1].centerx, txt2[1].bottom + 10)))
-                elif type(Current_window) == SPOTIFY:
+                elif Current_window is SPOTIFY:
                     Display.blit(*render_text('(Not playing)', 25, Colour['d grey'],
                                               midtop=(txt[1].centerx, txt[1].bottom + 15)))
-                elif type(Current_window) == OCTOPRINT:
+                elif Current_window is OCTOPRINT:
                     Display.blit(*render_text('(Not printing)', 25, Colour['d grey'],
                                               midtop=(txt[1].centerx, txt[1].bottom + 15)))
 
