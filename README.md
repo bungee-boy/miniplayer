@@ -47,19 +47,24 @@ Make sure your version numbers are equal or above the stated version!
 ## Node-RED Setup
 The miniplayer works by connecting to Node-RED through MQTT. Follow these steps to get it working:
 
-1. If you already have a Node-RED installation, all you need to do is **set the IP in the miniplayer settings**.\
-If you need to create a Node-RED instance, please follow the 
+1. If you already have a Node-RED installation,\
+you need to set `NODERED_IP` and `NODERED_PORT` in [user_settings.json](user_settings.json).\
+\
+If you do not have Node-RED, please follow the 
 [official documentation](https://nodered.org/docs/getting-started/).
 
 
-2. If you already have an MQTT broker with no credentials / login, please skip to step 3.\
-If you have a username and password for MQTT you need to set `MQTT_USER` and `MQTT_PASS`
-to the MQTT Username and Password.\
+2. If you already have an MQTT broker connected to Node-RED and with no credentials or login,\
+please skip to step 3.\
+\
+If you have a username and password for MQTT, then you need to set\
+`MQTT_USER` and `MQTT_PASS` in [user_settings.json](user_settings.json).\
+\
 If you do not have an MQTT broker, please follow
 [this tutorial](https://microcontrollerslab.com/install-mosquitto-mqtt-broker-windows-linux/).
 
 
-2. Once Node-RED is running, please **import the [necessary flow(s)](flows.json)** from this repo.\
+2. Once Node-RED is running, please import the [flows.json](flows.json) file into Node-RED.\
 If you do not know how to, please follow the 
 [official documentation](https://nodered.org/docs/user-guide/editor/workspace/import-export).
 
@@ -80,36 +85,38 @@ For example, if Node-RED is running on linux, the [weather_icons](/Node-RED/weat
 edit the template node under the WEATHER section in Node-RED.)
 
 ## Miniplayer Setup
-The miniplayer has a few hard-coded settings that need to be set before it will work.\
-To edit them, open [miniplayer.py](miniplayer.py) in a text editor. All settings are under `# SETTINGS` at the top. 
+The miniplayer has a few settings that need to be set before it will work.\
+To edit them, open [user_settings.json](user_settings.json) in a text editor.
 
-1. Make sure that the IP address to your Node-RED installation is correct.\
-To do this, open miniplayer.py with a text editor and **change NODERED to the correct IP** (as a string).\
+1. Make sure that the IP address and port to your Node-RED installation is correct.\
+To do this, change `NODERED_IP` and `NODERED_PORT` to the correct IP and Port.\
 For example:\
-`NODERED = '192.168.1.201'`\
+`NODERED_IP: "192.168.1.201"`\
+`NODERED_PORT: 1880`\
 \
 **THIS SETTING IS MANDATORY AND MUST BE SET!**
 
 
 2. The miniplayer also has a built-in screensaver. The default timer is 2 minutes.\
-To change it simply **set SCREENSAVER_DELAY to the amount of milliseconds** before activating.\
+To change it simply set SCREENSAVER_DELAY to the number of milliseconds of idle time\
+before activating.\
 For example, to set the screensaver timer to 5 minutes:\
-`SCREENSAVER_DELAY = 300000` (Default is `SCREENSAVER_DELAY = 120000`)
+`SCREENSAVER_DELAY = 300000` (The default is `120000`)
 
 
 3. Depending on how big your screen is and how performant the machine is,\
 you may also want to change the **FPS, WIDTH and HEIGHT** settings.\
-For example, to run the miniplayer at 720p and 30FPS, you need to change the following:\
-`FPS = 30` (Default is `FPS = 16 if SYSTEM == 'Windows' else 8`)\
-`WIDTH, HEIGHT = 1280, 720` (Default is `WIDTH, HEIGHT = 1024, 600`)
+For example, to run the miniplayer at 1080p and 60FPS, you need to change the following:\
+`FPS = 60` (The default is `30`)\
+`WIDTH, HEIGHT = 1920, 1080` (The default is `1280, 720`)
 
 # Launch Options / Arguments
 ## Miniplayer
-The miniplayer supports launch arguments instead of changing the built-in settings.\
+The miniplayer also supports launch arguments for debugging.\
 Setting these will force the value to be set at launch regardless of the current settings,\
 any settings not specified will still use the current value.\
 More than one option can be used at a time by separating them with a space, for example:\
-`python miniplayer.py --debug 1 --logging 0 --fps 30`\
+`python miniplayer.py --debug 1 --logging 0`\
 This allows much more flexibility to the way you launch the miniplayer!
 
 Note that passing an **incorrect value** to a **valid option** will result in a crash!\
@@ -117,12 +124,3 @@ Passing an incorrect option will have no effect.
 
 + `--debug {1=ON / 0=OFF}` - Forces debug mode on or off
 + `--logging {1=ON / 0=OFF}` - Forces logging on or off
-+ `--nodered "{Node-RED IP address}"` - Forces Node-RED IP address
-+ `--noderedusername "{Node-RED Username}"` - Forces Node-RED Username (mac by default)
-+ `--mqttusername "{MQTT Username}"` - Forces MQTT Username
-+ `--mqttpassword "{MQTT Password}"` - Forces MQTT Password
-+ `--mqttautoreconnect {Ms delay}` - Forces MQTT auto-reconnect delay
-+ `--fps {Frames per second}` - Forces FPS
-+ `--width {Screen width}` - Forces screen width
-+ `--height {Screen height}` - Forces screen height
-+ `--screensaverdelay {Ms delay}` - Forces screensaver delay
