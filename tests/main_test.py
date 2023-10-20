@@ -1,6 +1,6 @@
 import unittest
 import pygame as pg
-import miniplayer as mp
+import main as mp
 
 
 class TestVariables(unittest.TestCase):
