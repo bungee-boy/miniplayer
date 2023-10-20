@@ -197,9 +197,9 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'vol 0': load('assets/spotify/vol_0_1.png', (32, 32)),
         'vol 50': load('assets/spotify/vol_50_1.png', (32, 32)),
         'vol 100': load('assets/spotify/vol_100_1.png', (32, 32)),
-        'vol d': (load('assets/spotify/vol_decrease_0.png', (32, 32)),
+        'vol -': (load('assets/spotify/vol_decrease_0.png', (32, 32)),
                   load('assets/spotify/vol_decrease_1.png', (32, 32))),
-        'vol i': (load('assets/spotify/vol_increase_0.png', (32, 32)),
+        'vol +': (load('assets/spotify/vol_increase_0.png', (32, 32)),
                   load('assets/spotify/vol_increase_1.png', (32, 32)))}}
 
 Bg = pg.transform.smoothscale(Img['bg'], (WIDTH, HEIGHT))
@@ -991,22 +991,22 @@ class SPOTIFY(Window):
         response = requests.get(url)  # Request playlists
         if response.status_code == 200:
             try:
-                surf = pg.transform.smoothscale(pg.image.load(io.BytesIO(response.content)), (80, 80))
+                surf = pg.transform.smoothscale(pg.image.load(io.BytesIO(response.content)), (140, 140))
                 return surf
             except:
                 self.err('Failed to load playlist image (url={0})'.format(url))
-                return pg.surface.Surface((80, 80))
+                return pg.surface.Surface((140, 140))
         else:
             self.err('Failed to get playlist image (code={0}, url={1})'.format(response.status_code, url))
-            return pg.surface.Surface((80, 80))
+            return pg.surface.Surface((140, 140))
 
     def _load_default(self):
         icon = pg.transform.scale(Img['spotify']['logo'], (106, 32))
-        cover = pg.surface.Surface((128, 128))
+        cover = pg.surface.Surface((300, 300))
         cover.set_alpha(150)
         self._data = {'icon': (icon, icon.get_rect(midtop=(CENTER[0], 10))),
                       'bg': None,
-                      'album_cover': (cover, cover.get_rect(topleft=(20, 55))),
+                      'album_cover': (cover, cover.get_rect(topleft=(100, 125))),
                       'pause': Img['spotify']['pause'],
                       'play': Img['spotify']['play'],
                       'shuffle': Img['spotify']['shuffle'],
@@ -1023,14 +1023,14 @@ class SPOTIFY(Window):
                           '0': Img['spotify']['vol 0'],
                           '50': Img['spotify']['vol 50'],
                           '100': Img['spotify']['vol 100'],
-                          '-': Img['spotify']['vol d'],
-                          '+': Img['spotify']['vol i']}}
+                          '-': Img['spotify']['vol -'],
+                          '+': Img['spotify']['vol +']}}
         for index in range(0, len(self._data['shuffle_active'])):  # Duplicate shuffle as green from white
             pg.transform.threshold(self._data['shuffle_active'][index].copy(),
                                    self._data['shuffle_active'][index].copy(),
                                    search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
         surf = pg.surface.Surface((32, 32))
-        self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 60))})
+        self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 160))})
         top = self._data['center'].top
         self._data.update({'left': surf.get_rect(topright=(self._data['center'].left - 32, top))})
         self._data.update({'far_left': surf.get_rect(topright=(self._data['left'].left - 32, top))})
@@ -1052,13 +1052,16 @@ class SPOTIFY(Window):
             'page': 0}})
         pg.transform.threshold(self._data['plist']['pause'], self._data['plist']['pause'],
                                search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
-        pos = 15, 65, 80, 80, 3  # x, y, width, height, spacing
-        temp = [{'cover': pg.surface.Surface((80, 80)).get_rect(topleft=(pos[0], pos[1]))},
-                {'cover': pg.surface.Surface((80, 80)).get_rect(topleft=(pos[0], pos[1] + pos[3] + pos[4]))},
-                {'cover': pg.surface.Surface((80, 80)).get_rect(topleft=(pos[0], pos[1] + ((pos[3] + pos[4]) * 2)))}]
+        pos = 30, 100, 140, 140, 10  # x, y, width, height, spacing
+        temp = [{'cover': pg.surface.Surface((pos[2], pos[3])).get_rect(topleft=(pos[0], pos[1]))},
+                {'cover': pg.surface.Surface((pos[2], pos[3])).get_rect(topleft=(pos[0], pos[1] + pos[3] + pos[4]))},
+                {'cover': pg.surface.Surface((pos[2], pos[3])).get_rect(
+                    topleft=(pos[0], pos[1] + ((pos[3] + pos[4]) * 2)))},
+                {'cover': pg.surface.Surface((pos[2], pos[3])).get_rect(
+                    topleft=(pos[0], pos[1] + ((pos[3] + pos[4]) * 3)))}]
         for index in range(0, len(temp)):
             temp[index].update({'play': pg.surface.Surface((32, 32)).get_rect(
-                bottomleft=(temp[index]['cover'].right + 5, temp[index]['cover'].bottom - 5))})
+                bottomleft=(temp[index]['cover'].right + 15, temp[index]['cover'].bottom - 20))})
             temp[index].update({'move_u': pg.surface.Surface((32, 32)).get_rect(
                 midright=(Menu.right[1].left - 10, temp[index]['play'].centery))})
             temp[index].update({'move_d': pg.surface.Surface((32, 32)).get_rect(
@@ -1071,17 +1074,17 @@ class SPOTIFY(Window):
             'progress': '0:00',
             'album': {
                 'cover_url': '',
-                'name': 'Unknown'},
-            'artists': [{'name': 'Unknown'}],
+                'name': 'Loading...'},
+            'artists': [{'name': 'Loading...'}],
             'duration_ms': 0,
             'duration': '-:--',
             'explicit': False,
-            'song_name': 'Unknown',
+            'song_name': 'Loading...',
             'is_playing': False,
             'shuffle': False}
         self.device_value = {
-            'name': 'Unknown',
-            'type': 'Unknown',
+            'name': 'Loading...',
+            'type': 'Loading...',
             'volume_percent': 0
         }
 
@@ -1141,8 +1144,7 @@ class SPOTIFY(Window):
 
                 for playlist in self._playlists:
                     if playlist['id'] not in cache:
-                        playlist['images'] = self._fetch_image(playlist['images'][(
-                                len(playlist['images']) - 1) if len(playlist['images']) > 1 else 0]['url'])  # Load img
+                        playlist['images'] = self._fetch_image(playlist['images'][0]['url'])  # Load img
                         if os.path.isdir('playlists'):
                             try:
                                 pg.image.save_extended(playlist['images'], '{0}.png'.format(playlist['id']), 'png')
@@ -1184,7 +1186,7 @@ class SPOTIFY(Window):
                     self._playlists.append(playlist)
                     Settings.value['Playlist Order'].append(playlist['id'])
                     Settings.save()
-                    playlist['images'] = self._fetch_image(playlist['images'][len(playlist['images']) - 1]['url'])
+                    playlist['images'] = self._fetch_image(playlist['images'][0]['url'])
                     self.log('Playlist updated (id={0}, name={1})'.format(uid, playlist['name']))
                     return playlist['id']
 
@@ -1226,11 +1228,10 @@ class SPOTIFY(Window):
                         requests.get(msg['album']['cover_url']).content)), (temp, temp))
                     cover_crop = pg.surface.Surface((WIDTH, HEIGHT))
                     cover_crop.blit(cover, (CENTER[0] - cover.get_rect().centerx, CENTER[1] - cover.get_rect().centery))
-                    cover_crop.set_alpha(85)
+                    cover_crop.set_alpha(80)
                     self._data['bg'] = cover_crop, (0, 0)
-                    cover = pg.transform.smoothscale(cover, (256, 256))
-                    cover.set_alpha(None)
-                    self._data['album_cover'] = cover, cover.get_rect(center=cover.get_rect().size)
+                    cover = pg.transform.smoothscale(cover, (300, 300))
+                    self._data['album_cover'] = cover, cover.get_rect(topleft=(100, 125))
 
                 self.value = msg  # Copy response and convert values
                 if self.value['playlist_uri']:
@@ -1334,16 +1335,16 @@ class SPOTIFY(Window):
 
         surf.blit(*self._data['icon'])
         if not self._playing:
-            surf.blit(*render_text('Not Playing', 50, bold=True, center=CENTER))
+            surf.blit(*render_text('Not Playing', 80, bold=True, center=CENTER))
         else:
-            txt = render_text(self.value['song_name'], 25, bold=True,
-                              midleft=(self._data['album_cover'][1].right + 25,
-                                       self._data['album_cover'][1].top + self._data['album_cover'][1].height / 4))
+            txt = render_text(self.value['song_name'], 30, bold=True,
+                              bottomleft=(self._data['album_cover'][1].right + 25,
+                                          self._data['album_cover'][1].top + self._data['album_cover'][1].height / 4))
             surf.blit(*txt)  # SONG DETAILS
-            surf.blit(*render_text(self.value['artists'][0]['name'], 25,
+            surf.blit(*render_text(self.value['artists'][0]['name'], 30,
                                    midleft=(txt[1].left, self._data['album_cover'][1].centery)))
-            surf.blit(*render_text(self.value['album']['name'], 25,
-                                   midleft=(txt[1].left, self._data['album_cover'][1].centery +
+            surf.blit(*render_text(self.value['album']['name'], 30,
+                                   topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
             surf.blit(self._data['playlist'], self._data['far_left'])  # BUTTONS
@@ -1355,16 +1356,16 @@ class SPOTIFY(Window):
             surf.blit(self._data['shuffle_active' if self.value['shuffle'] else 'shuffle']
                       [1 if self._pending_action != 'shuffle' else 0], self._data['far_right'])
 
-            bar = render_bar((300, 10), self.value['progress_ms'], 0, self.value['duration_ms'],  # PROGRESS BAR
-                             midtop=(CENTER[0], self._data['center'].bottom + 20))
+            bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['duration_ms'],  # PROGRESS BAR
+                             midtop=(CENTER[0], self._data['center'].bottom + 40))
             surf.blit(*bar)
             surf.blit(*render_text(self.value['progress'], 15, Colour['white'], bold=True,  # PROGRESS
                                    midright=(bar[1].left - 15, bar[1].centery + 1)))
             surf.blit(*render_text(self.value['duration'], 15, Colour['white'], bold=True,  # DURATION
                                    midleft=(bar[1].right + 15, bar[1].centery + 1)))
 
-            bar = render_bar((100, 8), self.device_value['volume_percent'], 0, 100,  # VOLUME BAR
-                             midtop=(CENTER[0], bar[1].bottom + 20))
+            bar = render_bar((300, 14), self.device_value['volume_percent'], 0, 100,  # VOLUME BAR
+                             midtop=(CENTER[0], bar[1].bottom + 40))
             surf.blit(*bar)
             self._data['volume']['left'].midright = bar[1].left - 10, bar[1].centery  # VOLUME ICON
             self._data['volume']['right_1'].midleft = bar[1].right + 10, bar[1].centery
@@ -1388,12 +1389,12 @@ class SPOTIFY(Window):
         if self.show_playlists:
             surf.blit(Settings.shadow, (0, 0))
             surf.blit(Menu.cross, Menu.right[1])
-            temp = render_text('Playlists', 25, bold=True, center=(CENTER[0], Menu.right[1].centery - 5))
+            temp = render_text('Playlists', 35, bold=True, center=(CENTER[0], Menu.right[1].centery + 10))
             surf.blit(*temp)
             if self._playlists:  # If there are playlists
                 if self._active_playlist and 'name' in self._active_playlist.keys():
-                    surf.blit(*render_text('Currently playing: {0}'.format(self._active_playlist['name']), 20,
-                                           midtop=(CENTER[0], temp[1].bottom + 5)))
+                    surf.blit(*render_text('Currently playing: {0}'.format(self._active_playlist['name']), 30,
+                                           midtop=(CENTER[0], temp[1].bottom + 10)))
                 for index in range(0, len(self._data['plist_rect']) if len(
                         self._playlists) > len(self._data['plist_rect']) else len(self._playlists)):  # For shown plists
                     rect = self._data['plist_rect'][index]
@@ -1403,11 +1404,11 @@ class SPOTIFY(Window):
                     plist = self._playlists[index]
 
                     surf.blit(plist['images'], rect['cover'])  # Image
-                    surf.blit(*render_text(plist['name'], 21, bold=True,  # Name
-                                           topleft=(rect['cover'].right + 6, rect['cover'].top + 10)))
+                    surf.blit(*render_text(plist['name'], 25, bold=True,  # Name
+                                           topleft=(rect['cover'].right + 20, rect['cover'].top + 35)))
                     surf.blit(self._data['play'][1] if self._active_playlist != plist else
                               self._data['plist']['pause'], rect['play'])  # Play button
-                    surf.blit(*render_text('{0} Songs'.format(plist['tracks']['total']), 20,
+                    surf.blit(*render_text('{0} Songs'.format(plist['tracks']['total']), 30,
                                            midleft=(rect['play'].right + 5, rect['play'].centery)))  # Song count
                     surf.blit(self._data['plist']['move_d'][1 if index < len(
                               self._playlists) - 1 else 0], rect['move_d'])
@@ -1420,11 +1421,11 @@ class SPOTIFY(Window):
                           self._data['plist']['scroll_d'][2])
 
         if Settings.value['Device Info']:
-            surf.blit(*render_text(self.device_value['name'], 15, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
+            surf.blit(*render_text(self.device_value['name'], 25, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
         if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:  # Action status
             set_info('Action timed out!', Colour['red'])
         if not self.show_playlists:  # Timestamp
-            surf.blit(*render_text(self.timestamp, 15, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
+            surf.blit(*render_text(self.timestamp, 25, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
 
     def update(self):
         global Button_cooldown
@@ -1926,7 +1927,7 @@ def main():
             Button_cooldown = 0
 
         if Info[0] and Info[2] > pg.time.get_ticks():  # Show info
-            Display.blit(*render_text(Info[0], 15, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT)))
+            Display.blit(*render_text(Info[0], 20, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT)))
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
 
@@ -2019,7 +2020,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Local_weather  # Default window
+    Current_window = Spotify  # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
