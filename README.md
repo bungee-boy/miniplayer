@@ -124,3 +124,6 @@ Passing an incorrect option will have no effect.
 
 + `--debug {1=ON / 0=OFF}` - Forces debug mode on or off
 + `--logging {1=ON / 0=OFF}` - Forces logging on or off
+
+Icons by https://icons8.com/ (https://icons8.com/icons/collections/PMwl5uMDr7mD)\
+Some icons may be modified slightly

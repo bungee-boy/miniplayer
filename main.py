@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import platform
 import shutil
 import threading
 from time import strftime
@@ -17,11 +16,10 @@ import requests
 try:
     import pigpio
 except ImportError:
-    pigpio = None
+    pigpio = False
 
 DEBUG = False
 LOGGING = False
-SYSTEM = platform.system()
 Last_err = None
 
 
@@ -65,11 +63,13 @@ try:
         BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Enable backlight control through GPIO pins (Requires pigpio!)
         FPS = launch_usr['FPS']  # Frames per second (default: 30 )
         RESOLUTION = launch_usr['RESOLUTION']  # Width and height of the display or window (default: 1280, 720 )
+        SCREEN = launch_usr['SCREEN']  # Screen number (for multiple displays)
         SCREENSAVER_DELAY = launch_usr['SCREENSAVER']  # Active if no movement after x ms and enabled (default: 120000 )
-except FileNotFoundError:
-    print("\nWARNING: 'user_settings.json' not found, creating new file.\n")
+except FileNotFoundError or KeyError:
+    print("\nWARNING: 'user_settings.json' failed, attempting to fix.\n")
     try:
         with open('user_settings.json', 'w') as launch_usr:
+            launch_usr.seek(0)
             json.dump({
                 "DEBUG": False,
                 "LOGGING": False,
@@ -86,8 +86,9 @@ except FileNotFoundError:
                 "BACKLIGHT": False,
                 "FPS": 30,
                 "RESOLUTION": [1280, 720],
+                "SCREEN": 0,
                 "SCREENSAVER": 120000}, launch_usr, indent=2)
-        print("Created 'user_settings.json' please edit to correct settings!")
+        print("'user_settings.json' fixed successfully, please edit to correct settings!")
         try:
             import webbrowser
             webbrowser.open('user_settings.json')
@@ -110,12 +111,12 @@ except:
 if len(launch_opt) >= 1:  # LAUNCH OPTIONS
     if '--debug' in launch_opt:
         DEBUG = bool(int(launch_opt[launch_opt.index('--debug') + 1]))
-        print('Forced DEBUG to {0}'.format('On' if DEBUG else 'Off'))
+        print('Forced DEBUG {0}'.format('On' if DEBUG else 'Off'))
     if '--logging' in launch_opt:
         LOGGING = bool(int(launch_opt[launch_opt.index('--logging') + 1]))
         print('Forced LOGGING {0}'.format('On' if LOGGING else 'Off'))
 
-WIDTH, HEIGHT = 1280, 720
+WIDTH, HEIGHT = RESOLUTION
 CENTER = WIDTH // 2, HEIGHT // 2
 Button_cooldown = 0
 Button_cooldown_length = 500 if TOUCHSCREEN else 100
@@ -126,18 +127,10 @@ Colour = {'key': (1, 1, 1), 'black': (0, 0, 0), 'white': (255, 255, 255), 'grey'
           'd grey': (80, 80, 80), 'red': (251, 105, 98), 'yellow': (252, 252, 153), 'l green': (121, 222, 121),
           'green': (18, 115, 53), 'amber': (200, 140, 0), 'l blue': (3, 140, 252)}
 Info = '', Colour['white'], 2000  # txt, colour, ms
-Display = None
-Clock = None
-Bg = pg.surface.Surface((1, 1))
-Menu = None
-Loading_ani = None
-Mqtt = None
-Octo_print = None
-Local_weather = None
-Spotify = None
-Backlight = None
 
-Display = pg.display.set_mode(RESOLUTION, flags=pg.FULLSCREEN if FULLSCREEN else 0)
+Loading_ani = None
+
+Display = pg.display.set_mode(RESOLUTION, flags=pg.FULLSCREEN if FULLSCREEN else 0, display=SCREEN)
 Clock = pg.time.Clock()
 pg.display.set_caption('Miniplayer v2')
 pg.init()
@@ -177,30 +170,30 @@ Img = {  # ASSET DIRECTORIES / PATHS
     'bg': load('assets/bg.png', (480, 320)),
     'icon': load('assets/icon.ico', (32, 32)),
     'menu': {
-        'menu': load('assets/menu.png', (32, 32)),
-        'settings': load('assets/settings.png', (32, 32)),
-        'cross': load('assets/cross.png', (32, 32))},
+        'menu': load('assets/menu.png', (50, 50)),
+        'settings': load('assets/settings.png', (50, 50)),
+        'cross': load('assets/cross.png', (50, 50))},
     'l weather': {
         'unknown': load('assets/unknown.png', (128, 128))},
     'spotify': {
         'logo': load('assets/spotify/logo.png', (295, 89)),
-        'pause': (load('assets/spotify/pause_0.png', (32, 32)),
-                  load('assets/spotify/pause_1.png', (32, 32))),
-        'play': (load('assets/spotify/play_0.png', (32, 32)),
-                 load('assets/spotify/play_1.png', (32, 32))),
-        'shuffle': (load('assets/spotify/shuffle_0.png', (32, 32)),
-                    load('assets/spotify/shuffle_1.png', (32, 32))),
-        'playlist': load('assets/spotify/playlist_1.png', (32, 32)),
-        'skip': (load('assets/spotify/skip_0.png', (32, 32)),
-                 load('assets/spotify/skip_1.png', (32, 32))),
-        'mute': load('assets/spotify/mute_1.png', (32, 32)),
-        'vol 0': load('assets/spotify/vol_0_1.png', (32, 32)),
-        'vol 50': load('assets/spotify/vol_50_1.png', (32, 32)),
-        'vol 100': load('assets/spotify/vol_100_1.png', (32, 32)),
-        'vol -': (load('assets/spotify/vol_decrease_0.png', (32, 32)),
-                  load('assets/spotify/vol_decrease_1.png', (32, 32))),
-        'vol +': (load('assets/spotify/vol_increase_0.png', (32, 32)),
-                  load('assets/spotify/vol_increase_1.png', (32, 32)))}}
+        'pause': (load('assets/spotify/pause_0.png', (50, 50)),
+                  load('assets/spotify/pause_1.png', (50, 50))),
+        'play': (load('assets/spotify/play_0.png', (50, 50)),
+                 load('assets/spotify/play_1.png', (50, 50))),
+        'shuffle': (load('assets/spotify/shuffle_1.png', (50, 50)),
+                    load('assets/spotify/shuffle_1.png', (50, 50))),
+        'playlist': load('assets/spotify/playlist_1.png', (50, 50)),
+        'skip': (load('assets/spotify/skip_0.png', (50, 50)),
+                 load('assets/spotify/skip_1.png', (50, 50))),
+        'mute': load('assets/spotify/mute.png', (50, 50)),
+        'vol 0': load('assets/spotify/vol_0.png', (50, 50)),
+        'vol 50': load('assets/spotify/vol_50.png', (50, 50)),
+        'vol 100': load('assets/spotify/vol_100.png', (50, 50)),
+        'vol -': (load('assets/spotify/vol_-_0.png', (50, 50)),
+                  load('assets/spotify/vol_-_1.png', (50, 50))),
+        'vol +': (load('assets/spotify/vol_+_0.png', (50, 50)),
+                  load('assets/spotify/vol_+_1.png', (50, 50)))}}
 
 Bg = pg.transform.smoothscale(Img['bg'], (WIDTH, HEIGHT))
 Bg.set_alpha(130)
@@ -403,13 +396,13 @@ class BACKLIGHT(Window):
 
     def set(self, brightness: int):
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
-        if BACKLIGHT_CONTROL:
+        if BACKLIGHT_CONTROL and pigpio:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
         self.log('Set brightness to {0}'.format(self.brightness))
 
     def stop(self):
         self.set(0)
-        if BACKLIGHT_CONTROL:
+        if BACKLIGHT_CONTROL and pigpio:
             self._pi.stop()
         self.log('Backlight stopped')
 
@@ -424,11 +417,11 @@ class MENU(Window):
         self.windows = []
         self._retained_windows = []
         self.right = Img['menu']['menu']
-        self.right = self.right, self.right.get_rect(midright=(WIDTH - 20, 26))
+        self.right = self.right, self.right.get_rect(midright=(WIDTH - 20, 40))
         self.left = pg.transform.flip(self.right[0], True, False)
-        self.left = self.left, self.left.get_rect(midleft=(20, 26))
+        self.left = self.left, self.left.get_rect(midleft=(20, 40))
         self.settings = Img['menu']['settings']
-        self.settings = self.settings, self.settings.get_rect(midright=(WIDTH - 64, 26))
+        self.settings = self.settings, self.settings.get_rect(midright=(WIDTH - 80, 40))
         self.cross = Img['menu']['cross']
         self._screensaver_timer = 0
 
@@ -511,7 +504,7 @@ class SETTINGS(Window):
     def __init__(self):
         super().__init__('Settings')
         self.shadow = pg.surface.Surface((WIDTH, HEIGHT))
-        self.shadow.set_alpha(180)
+        self.shadow.set_alpha(160)
         self.value = {}
         self.load()
 
@@ -1001,7 +994,7 @@ class SPOTIFY(Window):
             return pg.surface.Surface((140, 140))
 
     def _load_default(self):
-        icon = pg.transform.scale(Img['spotify']['logo'], (106, 32))
+        icon = pg.transform.scale(Img['spotify']['logo'], (212, 64))
         cover = pg.surface.Surface((300, 300))
         cover.set_alpha(150)
         self._data = {'icon': (icon, icon.get_rect(midtop=(CENTER[0], 10))),
@@ -1016,9 +1009,9 @@ class SPOTIFY(Window):
                                  pg.transform.flip(Img['spotify']['skip'][1], True, False)),
                       'skip_r': Img['spotify']['skip'],
                       'volume': {
-                          'left': pg.rect.Rect(0, 0, 32, 32),
-                          'right_1': pg.rect.Rect(0, 0, 32, 32),
-                          'right_2': pg.rect.Rect(0, 0, 32, 32),
+                          'left': pg.rect.Rect(0, 0, 50, 50),
+                          'right_1': pg.rect.Rect(0, 0, 50, 50),
+                          'right_2': pg.rect.Rect(0, 0, 50, 50),
                           'm': Img['spotify']['mute'],
                           '0': Img['spotify']['vol 0'],
                           '50': Img['spotify']['vol 50'],
@@ -1029,15 +1022,15 @@ class SPOTIFY(Window):
             pg.transform.threshold(self._data['shuffle_active'][index].copy(),
                                    self._data['shuffle_active'][index].copy(),
                                    search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
-        surf = pg.surface.Surface((32, 32))
+        surf = pg.surface.Surface((50, 50))
         self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 160))})
         top = self._data['center'].top
-        self._data.update({'left': surf.get_rect(topright=(self._data['center'].left - 32, top))})
-        self._data.update({'far_left': surf.get_rect(topright=(self._data['left'].left - 32, top))})
-        self._data.update({'right': surf.get_rect(topleft=(self._data['center'].right + 32, top))})
-        self._data.update({'far_right': surf.get_rect(topleft=(self._data['right'].right + 32, top))})
+        self._data.update({'left': surf.get_rect(topright=(self._data['center'].left - 50, top))})
+        self._data.update({'far_left': surf.get_rect(topright=(self._data['left'].left - 50, top))})
+        self._data.update({'right': surf.get_rect(topleft=(self._data['center'].right + 50, top))})
+        self._data.update({'far_right': surf.get_rect(topleft=(self._data['right'].right + 50, top))})
 
-        self._data.update({'plist': {
+        self._data.update({'plist': {  # PLAYLISTS
             'pause': self._data['pause'][1].copy(),
             'scroll_u': (pg.transform.rotate(self._data['skip_r'][0], 90),
                          pg.transform.rotate(self._data['skip_r'][1], 90),
@@ -1068,7 +1061,7 @@ class SPOTIFY(Window):
                 midright=(temp[index]['move_u'].left - 10, temp[index]['move_u'].centery))})
         self._data.update({'plist_rect': temp})
 
-        self.value = {
+        self.value = {  # DEFAULT VALUES
             'playlist_uri': '',
             'progress_ms': 0,
             'progress': '0:00',
@@ -1083,8 +1076,8 @@ class SPOTIFY(Window):
             'is_playing': False,
             'shuffle': False}
         self.device_value = {
-            'name': 'Loading...',
-            'type': 'Loading...',
+            'name': '',
+            'type': '',
             'volume_percent': 0
         }
 
@@ -1359,17 +1352,17 @@ class SPOTIFY(Window):
             bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['duration_ms'],  # PROGRESS BAR
                              midtop=(CENTER[0], self._data['center'].bottom + 40))
             surf.blit(*bar)
-            surf.blit(*render_text(self.value['progress'], 15, Colour['white'], bold=True,  # PROGRESS
-                                   midright=(bar[1].left - 15, bar[1].centery + 1)))
-            surf.blit(*render_text(self.value['duration'], 15, Colour['white'], bold=True,  # DURATION
-                                   midleft=(bar[1].right + 15, bar[1].centery + 1)))
+            surf.blit(*render_text(self.value['progress'], 30, Colour['white'], bold=True,  # PROGRESS
+                                   midright=(bar[1].left - 30, bar[1].centery + 1)))
+            surf.blit(*render_text(self.value['duration'], 30, Colour['white'], bold=True,  # DURATION
+                                   midleft=(bar[1].right + 30, bar[1].centery + 1)))
 
             bar = render_bar((300, 14), self.device_value['volume_percent'], 0, 100,  # VOLUME BAR
-                             midtop=(CENTER[0], bar[1].bottom + 40))
+                             midtop=(CENTER[0], bar[1].bottom + 45))
             surf.blit(*bar)
-            self._data['volume']['left'].midright = bar[1].left - 10, bar[1].centery  # VOLUME ICON
-            self._data['volume']['right_1'].midleft = bar[1].right + 10, bar[1].centery
-            self._data['volume']['right_2'].midleft = self._data['volume']['right_1'].right + 10, bar[1].centery
+            self._data['volume']['left'].midright = bar[1].left - 20, bar[1].centery  # VOLUME ICON
+            self._data['volume']['right_1'].midleft = bar[1].right + 20, bar[1].centery
+            self._data['volume']['right_2'].midleft = self._data['volume']['right_1'].right + 20, bar[1].centery
             if self.device_value['volume_percent'] == 0:
                 surf.blit(self._data['volume']['m'], self._data['volume']['left'])
             elif self.device_value['volume_percent'] >= 65:
@@ -1404,12 +1397,12 @@ class SPOTIFY(Window):
                     plist = self._playlists[index]
 
                     surf.blit(plist['images'], rect['cover'])  # Image
-                    surf.blit(*render_text(plist['name'], 25, bold=True,  # Name
-                                           topleft=(rect['cover'].right + 20, rect['cover'].top + 35)))
+                    surf.blit(*render_text(plist['name'], 35, bold=True,  # Name
+                                           topleft=(rect['cover'].right + 20, rect['cover'].top + 25)))
                     surf.blit(self._data['play'][1] if self._active_playlist != plist else
                               self._data['plist']['pause'], rect['play'])  # Play button
                     surf.blit(*render_text('{0} Songs'.format(plist['tracks']['total']), 30,
-                                           midleft=(rect['play'].right + 5, rect['play'].centery)))  # Song count
+                                           midleft=(rect['play'].right + 15, rect['play'].centery)))  # Song count
                     surf.blit(self._data['plist']['move_d'][1 if index < len(
                               self._playlists) - 1 else 0], rect['move_d'])
                     surf.blit(self._data['plist']['move_u'][1 if index > 0 else 0], rect['move_u'])
@@ -1851,9 +1844,9 @@ def render_button(state: bool or tuple[int, int, int] or None, surf=Display, **k
 def draw_bg(txt=False, surf=Display):
     surf.blit(Bg, (0, 0))
     if txt:
-        txt = render_text('Miniplayer', 32, bold=True, center=CENTER)
+        txt = render_text('Miniplayer', 64, bold=True, center=CENTER)
         surf.blit(*txt)
-        surf.blit(*render_text('v2.0', 16, midtop=(txt[1].centerx, txt[1].bottom + 10)))
+        surf.blit(*render_text('v2.0', 32, midtop=(txt[1].centerx, txt[1].bottom + 20)))
 
 
 def set_info(txt: str, colour=Colour['green'], timeout=2000):
@@ -1927,7 +1920,7 @@ def main():
             Button_cooldown = 0
 
         if Info[0] and Info[2] > pg.time.get_ticks():  # Show info
-            Display.blit(*render_text(Info[0], 20, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT)))
+            Display.blit(*render_text(Info[0], 30, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT - 10)))
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
 
