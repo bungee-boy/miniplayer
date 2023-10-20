@@ -1,0 +1,4 @@
+pygame~=2.5.2
+paho-mqtt~=1.6.1
+requests~=2.31.0
+pigpio~=1.78
