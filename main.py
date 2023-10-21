@@ -18,7 +18,7 @@ try:
 except ImportError:
     pigpio = False
 
-DEBUG = False
+DEBUG = True
 LOGGING = False
 Last_err = None
 
@@ -129,6 +129,7 @@ Colour = {'key': (1, 1, 1), 'black': (0, 0, 0), 'white': (255, 255, 255), 'grey'
 Info = '', Colour['white'], 2000  # txt, colour, ms
 
 Loading_ani = None
+Menu = None
 
 Display = pg.display.set_mode(RESOLUTION, flags=pg.FULLSCREEN if FULLSCREEN else 0, display=SCREEN)
 Clock = pg.time.Clock()
@@ -271,7 +272,6 @@ class LoadingAni(Window):
         surf = Display
         self._running = True
         self._event = threading.Event()
-        prev_frame_timestamp = pg.time.get_ticks()
 
         dots = []
         for dot in range(0, 8):
@@ -301,17 +301,15 @@ class LoadingAni(Window):
                     if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                         raise KeyboardInterrupt
 
-                if prev_frame_timestamp != pg.time.get_ticks():  # Loop alpha for each dot
-                    for dot in dots:
-                        alpha = dot[0].get_alpha()
-                        if alpha - speed < 0 and alpha != 0:
-                            alpha = 0
-                        elif alpha - speed <= 0:
-                            alpha = 255
-                        else:
-                            alpha -= speed
-                        dot[0].set_alpha(alpha)
-                    prev_frame_timestamp = pg.time.get_ticks()
+                for dot in dots:  # Loop alpha for each dot to create animation
+                    alpha = dot[0].get_alpha()
+                    if alpha - speed < 0 and alpha != 0:
+                        alpha = 0
+                    elif alpha - speed <= 0:
+                        alpha = 255
+                    else:
+                        alpha -= speed
+                    dot[0].set_alpha(alpha)
 
                 surf.fill(Colour['black'])
                 surf.blit(Bg, (0, 0))
@@ -562,32 +560,29 @@ class SETTINGS(Window):
         global Button_cooldown
 
         surf.blit(self.shadow, (0, 0))
-        surf.blit(*render_text('Settings', 20, bold=True, center=(CENTER[0], Menu.right[1].centery)))
+        surf.blit(*render_text('Settings', 50, bold=True, center=(CENTER[0], Menu.right[1].centery)))
         surf.blit(Menu.settings[0], Menu.right[1])
-        # SCREENSAVER
-        screensaver = render_text('Screensaver', 20, bold=True, midleft=(20, 100))
-        surf.blit(*screensaver)
-        # DEVICE INFO
-        device_info = render_text('Device Info', 20, bold=True, midleft=(20, screensaver[1].bottom + 40))
-        surf.blit(*device_info)
-        # RELOAD PLAYLISTS
-        playlists = render_text('Reload', 20, bold=True, midleft=(CENTER[0] + 10, 100))
-        surf.blit(*playlists)
-        # RECONNECT
-        reconnect = render_text('Reconnect', 20, bold=True, midleft=(playlists[1].x, playlists[1].bottom + 40))
-        surf.blit(*reconnect)
-        # CLOSE
-        close = render_text('Close', 20, bold=True, midleft=(reconnect[1].x, reconnect[1].bottom + 40))
-        surf.blit(*close)
-        # MQTT INFO
-        surf.blit(*render_text('Connection: {0}   Username: {1}'.format(MQTT_IP, Mqtt.mac_address),
-                               15, bold=True, midbottom=(CENTER[0], HEIGHT - 3)))
 
-        screensaver = render_button(self.value['Screensaver'], center=(200, screensaver[1].centery))
-        device_info = render_button(self.value['Device Info'], center=(200, device_info[1].centery))
-        playlists = render_button(Colour['grey'], center=(410, playlists[1].centery))
-        reconnect = render_button(Colour['amber'], center=(410, reconnect[1].centery))
-        close = render_button(Colour['red'], center=(410, close[1].centery))
+        screensaver = render_button(self.value['Screensaver'], midleft=(Menu.left[1].centerx + 50, 150))
+        device_info = render_button(self.value['Device Info'], midleft=(screensaver.left, screensaver.centery + 100))
+        playlists = render_button(Colour['grey'], midleft=(device_info.left, device_info.centery + 100))
+        reconnect = render_button(Colour['amber'], midleft=(playlists.left, playlists.centery + 100))
+        close = render_button(Colour['red'], midleft=(reconnect.left, reconnect.centery + 100))
+
+        temp = 30
+        # SCREENSAVER
+        surf.blit(*render_text('Screensaver', 35, bold=True, midleft=(screensaver.right + temp, screensaver.centery)))
+        # DEVICE INFO
+        surf.blit(*render_text('Device Info', 35, bold=True, midleft=(device_info.right + temp, device_info.centery)))
+        # RELOAD PLAYLISTS
+        surf.blit(*render_text('Reload playlists', 35, bold=True, midleft=(playlists.right + temp, playlists.centery)))
+        # RECONNECT
+        surf.blit(*render_text('Reconnect', 35, bold=True, midleft=(reconnect.right + temp, reconnect.centery)))
+        # CLOSE
+        surf.blit(*render_text('Close', 35, bold=True, midleft=(close.right + temp, close.centery)))
+        # MQTT INFO
+        surf.blit(*render_text('Connection: {0}   Username: {1}'.format(MQTT_IP, Mqtt.mac_address), 30, bold=True,
+                               midbottom=(CENTER[0], HEIGHT - 10)))
 
         if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
                 TOUCHSCREEN and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
@@ -997,7 +992,7 @@ class SPOTIFY(Window):
         icon = pg.transform.scale(Img['spotify']['logo'], (212, 64))
         cover = pg.surface.Surface((300, 300))
         cover.set_alpha(150)
-        self._data = {'icon': (icon, icon.get_rect(midtop=(CENTER[0], 10))),
+        self._data = {'icon': (icon, icon.get_rect(center=(CENTER[0], Menu.left[1].centery))),
                       'bg': None,
                       'album_cover': (cover, cover.get_rect(topleft=(100, 125))),
                       'pause': Img['spotify']['pause'],
@@ -1793,14 +1788,13 @@ def render_bar(size: tuple[int, int], value: int or float, min_value: int or flo
     return surf, surf.get_rect(**kwargs)
 
 
-def render_button(state: bool or tuple[int, int, int] or None, surf=Display, **kwargs):
+def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs):
     surface = pg.surface.Surface((64, 32))
     surface.fill(Colour['key'])
     surface.set_colorkey(Colour['key'])
     rect = surface.get_rect(**kwargs)
 
-    # shading
-    shade = pg.surface.Surface((64, 32))
+    shade = pg.surface.Surface((64, 32))  # SHADING
     shade.fill(Colour['key'])
     shade.set_colorkey(Colour['key'])
     shade.set_alpha(100)
@@ -1813,31 +1807,26 @@ def render_button(state: bool or tuple[int, int, int] or None, surf=Display, **k
             color = Colour['grey']
         else:
             color = Colour['red']
-
     pg.draw.circle(shade, color, (16, 16), 14, draw_top_left=True, draw_bottom_left=True)
     pg.draw.rect(shade, color, (16, 2, 32, 28))
     pg.draw.circle(shade, color, (48, 16), 14, draw_top_right=True, draw_bottom_right=True)
-    surf.blit(shade, rect.topleft)
+    surf.blit(pg.transform.scale(shade, size), rect.topleft)
 
-    # nub
-    if state and type(state) is bool:
+    if state and type(state) is bool:  # PIN
         pg.draw.circle(surface, Colour['white'], (48, 16), 12, width=2)
         pg.draw.circle(surface, Colour['green'], (48, 16), 10)
     elif state is None or type(state) is tuple:
-        pg.draw.circle(surface, Colour['white'], (16, 16), 12, width=2, draw_top_left=True, draw_bottom_left=True)
-        surface.blit(*render_text('Press', 15, bold=True, center=surface.get_rect().center))
-        pg.draw.circle(surface, Colour['white'], (48, 16), 12, width=2, draw_top_right=True, draw_bottom_right=True)
+        surface.blit(*render_text('Press', 18, bold=True, center=surface.get_rect().center))
     else:
         pg.draw.circle(surface, Colour['white'], (16, 16), 12, width=2)
         pg.draw.circle(surface, Colour['red'], (16, 16), 10)
 
-    # outline
-    pg.draw.circle(surface, Colour['white'], (16, 16), 16, width=2, draw_top_left=True, draw_bottom_left=True)
+    pg.draw.circle(surface, Colour['white'], (16, 16), 16, width=2, draw_top_left=True, draw_bottom_left=True)  # BORDER
     pg.draw.line(surface, Colour['white'], (16, 0), (48, 0), width=2)
     pg.draw.line(surface, Colour['white'], (16, 30), (48, 30), width=2)
     pg.draw.circle(surface, Colour['white'], (48, 16), 16, width=2, draw_top_right=True, draw_bottom_right=True)
+    surf.blit(pg.transform.scale(surface, size), rect.topleft)
 
-    surf.blit(surface, rect.topleft)
     return rect
 
 
