@@ -119,7 +119,7 @@ if len(launch_opt) >= 1:  # LAUNCH OPTIONS
 WIDTH, HEIGHT = RESOLUTION
 CENTER = WIDTH // 2, HEIGHT // 2
 Button_cooldown = 0
-Button_cooldown_length = 500 if TOUCHSCREEN else 100
+Button_cooldown_length = 500 if TOUCHSCREEN else 50
 Mouse_pos = -1, -1
 Prev_mouse_pos = -2, -2
 Loaded_fonts = {}
@@ -202,6 +202,42 @@ pg.display.set_icon(Img['icon'])
 
 
 # CLASSES
+class SpriteSheet:
+    def __init__(self, filename: str, sprite_size: tuple[int, int], colour_key=Colour['key'], upscale=None):
+        self.filename = filename
+        self.sprite_size = sprite_size
+        self._sheet = pg.image.load(self.filename)
+        self._sheet.set_colorkey(colour_key)
+        self._upscale = upscale
+
+    def upscale(self, size: tuple[int, int]):
+        """ Sets the size of each new sprite. """
+        if size != self.sprite_size:
+            self._upscale = size
+        else:
+            self._upscale = None
+
+    def get_sprite(self, pos: tuple[int, int]):
+        """ Returns a single sprite as a surface. """
+        if self._upscale:
+            sprite = pg.transform.scale(self._sheet.subsurface(
+                (pos[0] * self.sprite_size[0], pos[1] * self.sprite_size[1],
+                 self.sprite_size[0], self.sprite_size[1])), self._upscale)
+            return sprite
+        else:
+            sprite = self._sheet.subsurface((pos[0] * self.sprite_size[0], pos[1] * self.sprite_size[1],
+                                             self.sprite_size[0], self.sprite_size[1]))
+            return sprite
+
+    def get_sprites(self, start_pos: tuple[int, int], end_pos: tuple[int, int]):
+        """ Returns multiple sprites as a tuple of surfaces. """
+        sprites = []
+        for y in range(start_pos[1], end_pos[1] + 1):
+            for x in range(start_pos[0], end_pos[0] + 1):
+                sprites.append(self.get_sprite((x, y)))
+        return tuple(sprites)
+
+
 class Window:
     def __init__(self, name: str):
         self.name = name
@@ -790,7 +826,9 @@ class LOCALWEATHER(Window):
         Menu.windows.append(self)
 
     def _load_default(self):
-        self._data = {}
+        self._data = {'ani': [
+            SpriteSheet('assets/weather/haze.png', (48, 48),
+                        colour_key=Colour['white'], upscale=(300, 300)).get_sprites((0, 0), (6, 4)), -1]}
         self._data.update({'temp': render_text(
             '-°c', 64, bold=True, midleft=(self.icon[1].right + 20, self.icon[1].centery - 17))})
         self._data.update({'state': render_text(
@@ -925,6 +963,12 @@ class LOCALWEATHER(Window):
                               midtop=(self._data['vis'][1].centerx, self._data['vis'][1].bottom + 10)))
         surf.blit(*render_text(self.timestamp, 15, self._timestamp_color,
                                bold=True if 'ERR' in self.timestamp else False, bottomleft=(5, HEIGHT - 3)))
+
+        if self._data['ani'][1] >= len(self._data['ani'][0]):
+            self._data['ani'][1] = 0
+        else:
+            self._data['ani'][1] += 1
+        surf.blit(self._data['ani'][0][self._data['ani'][1]], (500, 500))
 
     def update(self):
         if ((not Mqtt.connected or self._mqtt_response not in Mqtt.subscribed) and
@@ -1713,7 +1757,7 @@ class OCTOPRINT(Window):
         Menu.allow_screensaver = not self.printing
 
 
-def convert_s(sec: int):
+def convert_s(sec: int) -> str:
     minutes = 0
     hours = 0
     if sec >= 60:
@@ -1738,7 +1782,8 @@ def convert_s(sec: int):
         return str(hours) + ':' + str(minutes) + ':' + str(sec)
 
 
-def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs):
+def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs)\
+        -> tuple[pg.surface, pg.rect]:
     global Loaded_fonts
     font = 'assets/boldfont.ttf' if bold else 'assets/thinfont.ttf'
     font_name = str(size) + font
@@ -1755,7 +1800,8 @@ def render_text(text: str or int, size: int, colour=Colour['white'], bold=False,
 
 
 def render_bar(size: tuple[int, int], value: int or float, min_value: int or float, max_value: int or float,
-               fill_color=Colour['white'], border_width=2, border_radius=7, border_color=Colour['white'], **kwargs):
+               fill_color=Colour['white'], border_width=2, border_radius=7, border_color=Colour['white'], **kwargs)\
+        -> tuple[pg.surface, pg.rect]:
     value = float(value)
 
     surf = pg.surface.Surface((size[0], size[1]))
@@ -1788,7 +1834,7 @@ def render_bar(size: tuple[int, int], value: int or float, min_value: int or flo
     return surf, surf.get_rect(**kwargs)
 
 
-def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs):
+def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs) -> pg.rect:
     surface = pg.surface.Surface((64, 32))
     surface.fill(Colour['key'])
     surface.set_colorkey(Colour['key'])
@@ -2002,7 +2048,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Spotify  # Default window
+    Current_window = Local_weather  # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
