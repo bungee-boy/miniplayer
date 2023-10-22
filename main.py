@@ -268,7 +268,7 @@ class LoadingAni(Window):
         self.msg = ''
         self.msg_colour = None
 
-    def ani(self, pos=CENTER, colour=Colour['white'], size=(100, 100), dot_size=20, speed=18):
+    def ani(self, pos=CENTER, colour=Colour['white'], size=(125, 125), dot_size=25, speed=18):
         surf = Display
         self._running = True
         self._event = threading.Event()
@@ -323,7 +323,7 @@ class LoadingAni(Window):
                 surf.blit(dots[7][0], dots[7][1].topleft)
                 if self.msg:
                     self.msg_colour = Colour['white'] if not self.msg_colour else self.msg_colour
-                    surf.blit(*render_text(self.msg, 20, colour=self.msg_colour, bold=True,
+                    surf.blit(*render_text(self.msg, 30, colour=self.msg_colour, bold=True,
                                            midtop=(pos[0], pos[1] + size[1])))
                 pg.display.update()
 
@@ -1325,13 +1325,13 @@ class SPOTIFY(Window):
         if not self._playing:
             surf.blit(*render_text('Not Playing', 80, bold=True, center=CENTER))
         else:
-            txt = render_text(self.value['song_name'], 30, bold=True,
+            txt = render_text(self.value['song_name'], 35, bold=True,
                               bottomleft=(self._data['album_cover'][1].right + 25,
                                           self._data['album_cover'][1].top + self._data['album_cover'][1].height / 4))
             surf.blit(*txt)  # SONG DETAILS
-            surf.blit(*render_text(self.value['artists'][0]['name'], 30,
+            surf.blit(*render_text(self.value['artists'][0]['name'], 35,
                                    midleft=(txt[1].left, self._data['album_cover'][1].centery)))
-            surf.blit(*render_text(self.value['album']['name'], 30,
+            surf.blit(*render_text(self.value['album']['name'], 35,
                                    topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
@@ -1409,11 +1409,11 @@ class SPOTIFY(Window):
                           self._data['plist']['scroll_d'][2])
 
         if Settings.value['Device Info']:
-            surf.blit(*render_text(self.device_value['name'], 25, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
+            surf.blit(*render_text(self.device_value['name'], 30, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
         if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:  # Action status
             set_info('Action timed out!', Colour['red'])
         if not self.show_playlists:  # Timestamp
-            surf.blit(*render_text(self.timestamp, 25, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
+            surf.blit(*render_text(self.timestamp, 30, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
 
     def update(self):
         global Button_cooldown
