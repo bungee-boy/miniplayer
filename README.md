@@ -8,7 +8,7 @@ This example shows the data from local sensors and merges it from online sources
 before displaying all the information using a Raspberry PI LCD with touchscreen!\
 ![Miniplayer local weather window screenshot](/docs/images/local_weather.png)\
 Enjoy quickly navigating between windows to get all the latest information,\
-or maybe to control Spotify such as this one!
+or maybe to control Spotify such as this one!\
 ![Miniplayer spotify window screenshot](/docs/images/spotify.png)
 
 # Features

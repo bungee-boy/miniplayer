@@ -137,9 +137,12 @@ pg.display.set_caption('Miniplayer v2')
 pg.init()
 
 
-def load(img: str, size: tuple[int, int]):
+def load(img: str, size: tuple[int, int], alpha=True) -> pg.surface:
     try:
-        return pg.image.load(img)
+        if alpha:
+            return pg.Surface.convert_alpha(pg.image.load(img))
+        else:
+            return pg.Surface.convert(pg.image.load(img))
 
     except Exception or BaseException as err:
         handle(err, traceback=False)  # No traceback as too fast
@@ -168,13 +171,13 @@ except Exception or BaseException as error:
     handle(error, traceback=False)
 
 Img = {  # ASSET DIRECTORIES / PATHS
-    'bg': load('assets/bg.png', (480, 320)),
-    'icon': load('assets/icon.ico', (32, 32)),
+    'bg': load('assets/bg.jpg', (1280, 720), alpha=False),
+    'icon': load('assets/icon.ico', (32, 32), alpha=False),
     'menu': {
         'menu': load('assets/menu.png', (50, 50)),
         'settings': load('assets/settings.png', (50, 50)),
         'cross': load('assets/cross.png', (50, 50))},
-    'l weather': {
+    'weather': {
         'unknown': load('assets/unknown.png', (128, 128))},
     'spotify': {
         'logo': load('assets/spotify/logo.png', (295, 89)),
@@ -196,7 +199,7 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'vol +': (load('assets/spotify/vol_+_0.png', (50, 50)),
                   load('assets/spotify/vol_+_1.png', (50, 50)))}}
 
-Bg = pg.transform.smoothscale(Img['bg'], (WIDTH, HEIGHT))
+Bg = pg.transform.scale(Img['bg'], (WIDTH, HEIGHT))
 Bg.set_alpha(130)
 pg.display.set_icon(Img['icon'])
 
@@ -813,7 +816,7 @@ class LOCALWEATHER(Window):
             'wind': {'cardinal': 'Unknown', 'speed': 0, 'gust': 0},
             'clouds': 0, 'snow': None, 'state': 'Unknown', 'icon': 'unknown',
             'temp': {'real': 0, 'feels': 0, 'min': 0}, 'rain': 0, 'hum': 0, 'vis': 0}
-        self.icon = Img['l weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+        self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
 
     def get_icon(self, icon: str):
         try:
@@ -823,11 +826,11 @@ class LOCALWEATHER(Window):
         except Exception or BaseException as err:
             handle(err)
             self.err('Failed to load icon', data='id={0}'.format(icon))
-            self.icon = Img['l weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
         except:
             print('Unhandled exception -> LOCALWEATHER.get_icon()')
             self.err('Failed to load icon', data='id={0}'.format(icon))
-            self.icon = Img['l weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
 
     def receive(self, client, data, message):
         if data or client:
@@ -907,7 +910,7 @@ class LOCALWEATHER(Window):
 
     def draw(self, surf=Display):
         surf.fill(Colour['black'])
-        draw_bg(surf=surf)
+        surf.blit(Bg, (0, 0))
         surf.blit(*render_text('Local weather', 20, bold=True, center=(CENTER[0], Menu.right[1].centery)))
         surf.blit(*self.icon)
         surf.blit(*self._data['temp'])
@@ -1713,7 +1716,7 @@ class OCTOPRINT(Window):
         Menu.allow_screensaver = not self.printing
 
 
-def convert_s(sec: int):
+def convert_s(sec: int) -> str:
     minutes = 0
     hours = 0
     if sec >= 60:
@@ -1738,7 +1741,8 @@ def convert_s(sec: int):
         return str(hours) + ':' + str(minutes) + ':' + str(sec)
 
 
-def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs):
+def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs)\
+        -> tuple[pg.surface, pg.rect]:
     global Loaded_fonts
     font = 'assets/boldfont.ttf' if bold else 'assets/thinfont.ttf'
     font_name = str(size) + font
@@ -1755,7 +1759,8 @@ def render_text(text: str or int, size: int, colour=Colour['white'], bold=False,
 
 
 def render_bar(size: tuple[int, int], value: int or float, min_value: int or float, max_value: int or float,
-               fill_color=Colour['white'], border_width=2, border_radius=7, border_color=Colour['white'], **kwargs):
+               fill_color=Colour['white'], border_width=2, border_radius=7, border_color=Colour['white'], **kwargs)\
+        -> tuple[pg.surface, pg.rect]:
     value = float(value)
 
     surf = pg.surface.Surface((size[0], size[1]))
@@ -1788,7 +1793,7 @@ def render_bar(size: tuple[int, int], value: int or float, min_value: int or flo
     return surf, surf.get_rect(**kwargs)
 
 
-def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs):
+def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs) -> pg.rect:
     surface = pg.surface.Surface((64, 32))
     surface.fill(Colour['key'])
     surface.set_colorkey(Colour['key'])
@@ -1869,8 +1874,12 @@ def main():
                 if not Current_window.active:  # ALL WINDOWS
                     print('[Main] Starting Current_window...')
                     Current_window.start()
+                # temp = timer()
                 Current_window.update()
+                # temp = round((timer() - temp) * 1000, 2)
+                # temp1 = timer()
                 Current_window.draw()
+                # print(f"Update: {temp}ms, Draw: {round((timer() - temp1) * 1000, 2)}ms")
 
                 if Settings.active:  # SETTINGS
                     Menu.allow_screensaver = False
@@ -2002,7 +2011,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Spotify  # Default window
+    Current_window = Local_weather  # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
