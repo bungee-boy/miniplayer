@@ -18,7 +18,7 @@ try:
 except ImportError:
     pigpio = False
 
-DEBUG = True
+DEBUG = False
 LOGGING = False
 Last_err = None
 
