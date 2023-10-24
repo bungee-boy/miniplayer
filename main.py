@@ -1785,6 +1785,10 @@ def convert_s(sec: int) -> str:
         return str(hours) + ':' + str(minutes) + ':' + str(sec)
 
 
+def convert_ms(timestamp: timer) -> float:
+    return round((timer() - timestamp) * 1000, 2)
+
+
 def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs)\
         -> tuple[pg.surface, pg.rect]:
     global Loaded_fonts
@@ -1896,6 +1900,7 @@ def set_info(txt: str, colour=Colour['green'], timeout=2000):
 def main():
     global Current_window, Button_cooldown, Mouse_pos, Prev_mouse_pos
     while True:  # Forever loop
+        # mainloop_time = timer()
         while Loading_ani.active:
             pg.time.wait(250)  # Wait for animation to finish if playing
         if Mqtt.reconnect_pending:
@@ -1920,10 +1925,10 @@ def main():
                     Current_window.start()
                 # update_time = timer()
                 Current_window.update()
-                # update_time = round((timer() - temp) * 1000, 2)
+                # update_time = convert_ms(update_time)
                 # draw_time = timer()
                 Current_window.draw()
-                # print(f"Update: {update_time}ms, Draw: {round((timer() - draw_time) * 1000, 2)}ms")
+                # print(f'Update: {update_time}ms, Draw: {update_ms(draw_time)}ms')
 
                 if Settings.active:  # SETTINGS
                     Menu.allow_screensaver = False
@@ -1969,6 +1974,7 @@ def main():
 
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
+        # print(f'Mainloop: {convert_ms(mainloop_time)}ms')
 
 
 def quit_all():
