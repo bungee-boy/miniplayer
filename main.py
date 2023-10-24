@@ -402,7 +402,7 @@ class LoadingAni(Window):
 class BACKLIGHT(Window):
     _mqtt_request = '/miniplayer/backlight/request'
     _mqtt_response = '/miniplayer/backlight'
-    pin = 18
+    pin = BACKLIGHT_PIN
     freq = 500
 
     def __init__(self):
