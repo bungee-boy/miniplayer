@@ -1020,7 +1020,7 @@ class SPOTIFY(Window):
                       'pause': Img['spotify']['pause'],
                       'play': Img['spotify']['play'],
                       'shuffle': Img['spotify']['shuffle'],
-                      'shuffle_active': Img['spotify']['shuffle'],
+                      'shuffle_active': (Img['spotify']['shuffle'][0].copy(), Img['spotify']['shuffle'][1].copy()),
                       'playlist': Img['spotify']['playlist'],
                       'skip_l': (pg.transform.flip(Img['spotify']['skip'][0], True, False),
                                  pg.transform.flip(Img['spotify']['skip'][1], True, False)),
@@ -1036,8 +1036,7 @@ class SPOTIFY(Window):
                           '-': Img['spotify']['vol -'],
                           '+': Img['spotify']['vol +']}}
         for index in range(0, len(self._data['shuffle_active'])):  # Duplicate shuffle as green from white
-            pg.transform.threshold(self._data['shuffle_active'][index].copy(),
-                                   self._data['shuffle_active'][index].copy(),
+            pg.transform.threshold(self._data['shuffle_active'][index], self._data['shuffle_active'][index],
                                    search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
         surf = pg.surface.Surface((50, 50))
         self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 160))})
@@ -1070,12 +1069,12 @@ class SPOTIFY(Window):
                 {'cover': pg.surface.Surface((pos[2], pos[3])).get_rect(
                     topleft=(pos[0], pos[1] + ((pos[3] + pos[4]) * 3)))}]
         for index in range(0, len(temp)):
-            temp[index].update({'play': pg.surface.Surface((32, 32)).get_rect(
-                bottomleft=(temp[index]['cover'].right + 15, temp[index]['cover'].bottom - 20))})
-            temp[index].update({'move_u': pg.surface.Surface((32, 32)).get_rect(
-                midright=(Menu.right[1].left - 10, temp[index]['play'].centery))})
-            temp[index].update({'move_d': pg.surface.Surface((32, 32)).get_rect(
-                midright=(temp[index]['move_u'].left - 10, temp[index]['move_u'].centery))})
+            temp[index].update({'play': pg.surface.Surface((50, 50)).get_rect(
+                bottomleft=(temp[index]['cover'].right + 20, temp[index]['cover'].bottom - 10))})
+            temp[index].update({'move_u': pg.surface.Surface((50, 50)).get_rect(
+                midright=(Menu.right[1].left - 30, temp[index]['cover'].centery))})
+            temp[index].update({'move_d': pg.surface.Surface((50, 50)).get_rect(
+                midright=(temp[index]['move_u'].left - 40, temp[index]['cover'].centery))})
         self._data.update({'plist_rect': temp})
 
         self.value = {  # DEFAULT VALUES
@@ -1399,7 +1398,7 @@ class SPOTIFY(Window):
         if self.show_playlists:
             surf.blit(Settings.shadow, (0, 0))
             surf.blit(Menu.cross, Menu.right[1])
-            temp = render_text('Playlists', 35, bold=True, center=(CENTER[0], Menu.right[1].centery + 10))
+            temp = render_text('Playlists', 35, bold=True, center=(CENTER[0], Menu.right[1].centery - 5))
             surf.blit(*temp)
             if self._playlists:  # If there are playlists
                 if self._active_playlist and 'name' in self._active_playlist.keys():
@@ -1414,12 +1413,13 @@ class SPOTIFY(Window):
                     plist = self._playlists[index]
 
                     surf.blit(plist['images'], rect['cover'])  # Image
-                    surf.blit(*render_text(plist['name'], 35, bold=True,  # Name
-                                           topleft=(rect['cover'].right + 20, rect['cover'].top + 25)))
+                    surf.blit(*render_text(plist['name'], 45, bold=True,  # Name
+                                           midleft=(rect['cover'].right + 20,
+                                                    rect['cover'].centery - rect['cover'].height / 4)))
                     surf.blit(self._data['play'][1] if self._active_playlist != plist else
                               self._data['plist']['pause'], rect['play'])  # Play button
-                    surf.blit(*render_text(f"{plist['tracks']['total']} Songs", 30,
-                                           midleft=(rect['play'].right + 15, rect['play'].centery)))  # Song count
+                    surf.blit(*render_text(f"{plist['tracks']['total']} Songs", 35,
+                                           midleft=(rect['play'].right + 20, rect['play'].centery)))  # Song count
                     surf.blit(self._data['plist']['move_d'][1 if index < len(
                               self._playlists) - 1 else 0], rect['move_d'])
                     surf.blit(self._data['plist']['move_u'][1 if index > 0 else 0], rect['move_u'])
@@ -1446,123 +1446,127 @@ class SPOTIFY(Window):
               not Settings.active):
             Menu.allow_screensaver = True
             self.log('Allowed screensaver')
+        if not self._playing and self.show_playlists:  # Disable playlists if not playing
+            self.show_playlists = False
+        if self._playing:
+            # UPDATE PROGRESS BAR
+            if pg.time.get_ticks() - self._update_ms >= 1000 and self.value['is_playing'] and \
+                    self.value['progress_ms'] + 1000 < self.value['duration_ms']:
+                self._update_ms = pg.time.get_ticks()
+                self.value['progress_ms'] += 1000
+                self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
+            elif self.value['progress_ms'] + 1000 >= self.value['duration_ms']:
+                self.value['progress_ms'] = self.value['duration_ms']
+                self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
 
-        # UPDATE PROGRESS BAR
-        if pg.time.get_ticks() - self._update_ms >= 1000 and self.value['is_playing'] and \
-                self.value['progress_ms'] + 1000 < self.value['duration_ms']:
-            self._update_ms = pg.time.get_ticks()
-            self.value['progress_ms'] += 1000
-            self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
-        elif self.value['progress_ms'] + 1000 >= self.value['duration_ms']:
-            self.value['progress_ms'] = self.value['duration_ms']
-            self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
+            # CONTROLS
+            action = None
+            if not Settings.active and not self.show_playlists and not Button_cooldown and (
+                    not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
+                    TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
+                if self._data['center'].collidepoint(Mouse_pos):
+                    action = 'pause' if self.value['is_playing'] else 'play'
+                    self._prev_value = self.value['is_playing']
+                elif self._data['left'].collidepoint(Mouse_pos):
+                    action = 'rewind'
+                    self._prev_value = self.value['song_name']
+                elif self._data['right'].collidepoint(Mouse_pos):
+                    action = 'skip'
+                    self._prev_value = self.value['song_name']
+                elif self._data['far_right'].collidepoint(Mouse_pos):
+                    action = 'shuffle'
+                    self._prev_value = self.value['shuffle']
+                elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
+                      self.device_value['volume_percent'] > 0):
+                    action = 'decrease_volume'
+                    self._prev_value = self.device_value['volume_percent']
+                elif (self._data['volume']['right_2'].collidepoint(Mouse_pos) and
+                      self.device_value['volume_percent'] < 100):
+                    action = 'increase_volume'
+                    self._prev_value = self.device_value['volume_percent']
 
-        # CONTROLS
-        action = None
-        if not Settings.active and not self.show_playlists and not Button_cooldown and (
-                not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
-                TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
-            if self._data['center'].collidepoint(Mouse_pos):
-                action = 'pause' if self.value['is_playing'] else 'play'
-                self._prev_value = self.value['is_playing']
-            elif self._data['left'].collidepoint(Mouse_pos):
-                action = 'rewind'
-                self._prev_value = self.value['song_name']
-            elif self._data['right'].collidepoint(Mouse_pos):
-                action = 'skip'
-                self._prev_value = self.value['song_name']
-            elif self._data['far_right'].collidepoint(Mouse_pos):
-                action = 'shuffle'
-                self._prev_value = self.value['shuffle']
-            elif self._data['volume']['right_1'].collidepoint(Mouse_pos) and self.device_value['volume_percent'] > 0:
-                action = 'decrease_volume'
-                self._prev_value = self.device_value['volume_percent']
-            elif self._data['volume']['right_2'].collidepoint(Mouse_pos) and self.device_value['volume_percent'] < 100:
-                action = 'increase_volume'
-                self._prev_value = self.device_value['volume_percent']
-
-            if action and not self._pending_action and not self._action_time:
-                Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                self._action_time = pg.time.get_ticks() + self._pending_action_length
-                self._pending_action = action
-                if action == 'decrease_volume':
-                    Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] - 5
-                              if self.device_value['volume_percent'] - 5 >= 0 else 0)
-                elif action == 'increase_volume':
-                    Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] + 5
-                              if self.device_value['volume_percent'] + 5 <= 100 else 100)
-                else:
-                    Mqtt.send(self._mqtt_action, action)
-                self.log(f'{action.title()} requested')
-
-            if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLIST (open)
-                Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                Menu.allow_controls = False
-                self.show_playlists = True
-                self.log('Opened playlists')
-
-        if self._pending_action == 'pause' and self.value['is_playing'] != self._prev_value or \
-                self._pending_action == 'play' and self.value['is_playing'] != self._prev_value or \
-                self._pending_action == 'skip' and self.value['song_name'] != self._prev_value or \
-                self._pending_action == 'rewind' and self.value['song_name'] != self._prev_value or \
-                self._pending_action == 'increase_volume' and \
-                self.device_value['volume_percent'] > self._prev_value or \
-                self._pending_action == 'decrease_volume' and \
-                self.device_value['volume_percent'] < self._prev_value or \
-                self._pending_action == 'shuffle' and self.value['shuffle'] != self._prev_value:
-            self.log(f'{self._pending_action.title()} confirmed')
-            set_info(f"{self._pending_action.title().replace('_', ' ')} confirmed")
-            self._action_time = 0
-            self._prev_value = None
-            self._pending_action = None
-
-        if self._action_time and pg.time.get_ticks() >= self._action_time:
-            self.err(f'{self._pending_action} timed out')
-            self._timeout_time = pg.time.get_ticks() + 5000
-            self._action_time = 0
-            self._prev_value = None
-            self._pending_action = None
-
-        if self.show_playlists:
-            if not Button_cooldown and (not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
-                                        TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
-                if Menu.right[1].collidepoint(Mouse_pos):  # PLAYLIST (close)
+                if action and not self._pending_action and not self._action_time:
                     Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                    self._save_playlists()
-                    Menu.allow_controls = True
-                    self.show_playlists = False
-                    self.log('Closed playlists')
-                elif self._data['plist']['scroll_u'][2].collidepoint(Mouse_pos) and self._data['plist']['page'] > 0:
-                    Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                    self._data['plist']['page'] -= 1
-                    self.log('Scroll up')
-                elif (self._data['plist']['scroll_d'][2].collidepoint(Mouse_pos) and   # Scroll down
-                      self._data['plist']['page'] < floor(len(self._playlists) / len(self._data['plist_rect']))):
-                    Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                    self._data['plist']['page'] += 1
-                    self.log('Scroll down')
+                    self._action_time = pg.time.get_ticks() + self._pending_action_length
+                    self._pending_action = action
+                    if action == 'decrease_volume':
+                        Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] - 5
+                                  if self.device_value['volume_percent'] - 5 >= 0 else 0)
+                    elif action == 'increase_volume':
+                        Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] + 5
+                                  if self.device_value['volume_percent'] + 5 <= 100 else 100)
+                    else:
+                        Mqtt.send(self._mqtt_action, action)
+                    self.log(f'{action.title()} requested')
 
-                else:
-                    for index in range(0, len(self._data['plist_rect'])):  # For each shown playlist
-                        rect = self._data['plist_rect'][index]
-                        index += self._data['plist']['page'] * len(self._data['plist_rect'])  # Offset index by page
-                        if index >= len(self._playlists):
-                            break
-                        plist = self._playlists[index]
-                        if rect['play'].collidepoint(Mouse_pos):  # Play
-                            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                            Mqtt.send(self._mqtt_action, plist['uri'])
-                            self.log(f"Playlist '{plist['id']}' ({plist['name']}) requested")
-                        elif rect['move_u'].collidepoint(Mouse_pos) and index > 0:  # Move up
-                            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                            self._playlists[index] = self._playlists[index - 1]
-                            self._playlists[index - 1] = plist
-                            self.log(f"Move playlist '{plist['id']}' ({plist['name']}) up")
-                        elif rect['move_d'].collidepoint(Mouse_pos) and index < len(self._playlists) - 1:  # Move down
-                            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                            self._playlists[index] = self._playlists[index + 1]
-                            self._playlists[index + 1] = plist
-                            self.log(f"Move playlist '{plist['id']}' ({plist['name']}) down")
+                if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLIST (open)
+                    Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                    Menu.allow_controls = False
+                    self.show_playlists = True
+                    self.log('Opened playlists')
+
+            if self._pending_action == 'pause' and self.value['is_playing'] != self._prev_value or \
+                    self._pending_action == 'play' and self.value['is_playing'] != self._prev_value or \
+                    self._pending_action == 'skip' and self.value['song_name'] != self._prev_value or \
+                    self._pending_action == 'rewind' and self.value['song_name'] != self._prev_value or \
+                    self._pending_action == 'increase_volume' and \
+                    self.device_value['volume_percent'] > self._prev_value or \
+                    self._pending_action == 'decrease_volume' and \
+                    self.device_value['volume_percent'] < self._prev_value or \
+                    self._pending_action == 'shuffle' and self.value['shuffle'] != self._prev_value:
+                self.log(f'{self._pending_action.title()} confirmed')
+                set_info(f"{self._pending_action.title().replace('_', ' ')} confirmed")
+                self._action_time = 0
+                self._prev_value = None
+                self._pending_action = None
+
+            if self._action_time and pg.time.get_ticks() >= self._action_time:
+                self.err(f'{self._pending_action} timed out')
+                self._timeout_time = pg.time.get_ticks() + 5000
+                self._action_time = 0
+                self._prev_value = None
+                self._pending_action = None
+
+            if self.show_playlists:
+                if not Button_cooldown and (not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
+                                            TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
+                    if Menu.right[1].collidepoint(Mouse_pos):  # PLAYLIST (close)
+                        Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                        self._save_playlists()
+                        Menu.allow_controls = True
+                        self.show_playlists = False
+                        self.log('Closed playlists')
+                    elif self._data['plist']['scroll_u'][2].collidepoint(Mouse_pos) and self._data['plist']['page'] > 0:
+                        Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                        self._data['plist']['page'] -= 1
+                        self.log('Scroll up')
+                    elif (self._data['plist']['scroll_d'][2].collidepoint(Mouse_pos) and   # Scroll down
+                          self._data['plist']['page'] < floor(len(self._playlists) / len(self._data['plist_rect']))):
+                        Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                        self._data['plist']['page'] += 1
+                        self.log('Scroll down')
+
+                    else:
+                        for index in range(0, len(self._data['plist_rect'])):  # For each shown playlist
+                            rect = self._data['plist_rect'][index]
+                            index += self._data['plist']['page'] * len(self._data['plist_rect'])  # Offset index by page
+                            if index >= len(self._playlists):
+                                break
+                            plist = self._playlists[index]
+                            if rect['play'].collidepoint(Mouse_pos):  # Play
+                                Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                                Mqtt.send(self._mqtt_action, plist['uri'])
+                                self.log(f"Playlist '{plist['id']}' ({plist['name']}) requested")
+                            elif rect['move_u'].collidepoint(Mouse_pos) and index > 0:  # Move up
+                                Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                                self._playlists[index] = self._playlists[index - 1]
+                                self._playlists[index - 1] = plist
+                                self.log(f"Move playlist '{plist['id']}' ({plist['name']}) up")
+                            elif rect['move_d'].collidepoint(Mouse_pos) and index < len(self._playlists) - 1:  # Down
+                                Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                                self._playlists[index] = self._playlists[index + 1]
+                                self._playlists[index + 1] = plist
+                                self.log(f"Move playlist '{plist['id']}' ({plist['name']}) down")
 
 
 class OCTOPRINT(Window):
