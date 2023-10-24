@@ -1499,6 +1499,7 @@ class SPOTIFY(Window):
                 Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                 Menu.allow_controls = False
                 self.show_playlists = True
+                self.log('Opened playlists')
 
         if self._pending_action == 'pause' and self.value['is_playing'] != self._prev_value or \
                 self._pending_action == 'play' and self.value['is_playing'] != self._prev_value or \
@@ -1530,6 +1531,7 @@ class SPOTIFY(Window):
                     self._save_playlists()
                     Menu.allow_controls = True
                     self.show_playlists = False
+                    self.log('Closed playlists')
                 elif self._data['plist']['scroll_u'][2].collidepoint(Mouse_pos) and self._data['plist']['page'] > 0:
                     Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                     self._data['plist']['page'] -= 1
@@ -1574,7 +1576,7 @@ class OCTOPRINT(Window):
         self.value = {}
         self.printing = False
         self._load_default()
-        Menu.windows.append(self)
+        # Menu.windows.append(self)
 
     def _load_default(self):
         self._data = {
