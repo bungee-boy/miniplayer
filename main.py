@@ -27,7 +27,7 @@ def handle(err: Exception or BaseException, save=True, repeat=False, traceback=T
     global Last_err
     if type(err) is KeyboardInterrupt:
         return
-    msg = '{0}: {1}'.format(str(type(err)).replace("<class '", '').replace("'>", ''), err)
+    msg = "{0}: {1}".format(str(type(err)).replace("<class '", '').replace("'>", ''), err)
     if not repeat and msg == Last_err:
         return
     if DEBUG and traceback:  # Show traceback if debug is on
@@ -111,10 +111,10 @@ except:
 if len(launch_opt) >= 1:  # LAUNCH OPTIONS
     if '--debug' in launch_opt:
         DEBUG = bool(int(launch_opt[launch_opt.index('--debug') + 1]))
-        print('Forced DEBUG {0}'.format('On' if DEBUG else 'Off'))
+        print('Forced DEBUG ' + 'On' if DEBUG else 'Off')
     if '--logging' in launch_opt:
         LOGGING = bool(int(launch_opt[launch_opt.index('--logging') + 1]))
-        print('Forced LOGGING {0}'.format('On' if LOGGING else 'Off'))
+        print(f'Forced LOGGING {"On" if LOGGING else "Off"}')
 
 WIDTH, HEIGHT = RESOLUTION
 CENTER = WIDTH // 2, HEIGHT // 2
@@ -178,7 +178,28 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'settings': load('assets/settings.png', (50, 50)),
         'cross': load('assets/cross.png', (50, 50))},
     'weather': {
-        'unknown': load('assets/unknown.png', (128, 128))},
+        'unknown': pg.transform.smoothscale(load('assets/weather/unknown.png', (100, 100)), (300, 300)),
+        'storm': pg.transform.smoothscale(load('assets/weather/storm.png', (100, 100)), (300, 300)),
+        'storm_2': pg.transform.smoothscale(load('assets/weather/storm_2.png', (100, 100)), (300, 300)),
+        'storm_3': pg.transform.smoothscale(load('assets/weather/storm_3.png', (100, 100)), (300, 300)),
+        'rain': pg.transform.smoothscale(load('assets/weather/rain.png', (100, 100)), (300, 300)),
+        'rain_2': pg.transform.smoothscale(load('assets/weather/rain_2.png', (100, 100)), (300, 300)),
+        'rain_3': pg.transform.smoothscale(load('assets/weather/rain_3.png', (100, 100)), (300, 300)),
+        'rain_4': pg.transform.smoothscale(load('assets/weather/rain_4.png', (100, 100)), (300, 300)),
+        'rain_5': pg.transform.smoothscale(load('assets/weather/rain_5.png', (100, 100)), (300, 300)),
+        'hail': pg.transform.smoothscale(load('assets/weather/hail.png', (100, 100)), (300, 300)),
+        'snow': pg.transform.smoothscale(load('assets/weather/snow.png', (100, 100)), (300, 300)),
+        'snow_2': pg.transform.smoothscale(load('assets/weather/snow_2.png', (100, 100)), (300, 300)),
+        'snow_3': pg.transform.smoothscale(load('assets/weather/snow_3.png', (100, 100)), (300, 300)),
+        'mist': pg.transform.smoothscale(load('assets/weather/mist.png', (100, 100)), (300, 300)),
+        'dust': pg.transform.smoothscale(load('assets/weather/dust.png', (100, 100)), (300, 300)),
+        'haze': pg.transform.smoothscale(load('assets/weather/haze.png', (100, 100)), (300, 300)),
+        'fog': pg.transform.smoothscale(load('assets/weather/fog.png', (100, 100)), (300, 300)),
+        'wind': pg.transform.smoothscale(load('assets/weather/wind.png', (100, 100)), (300, 300)),
+        'tornado': pg.transform.smoothscale(load('assets/weather/tornado.png', (100, 100)), (300, 300)),
+        'sun': pg.transform.smoothscale(load('assets/weather/sun.png', (100, 100)), (300, 300)),
+        'cloud_2': pg.transform.smoothscale(load('assets/weather/cloud_2.png', (100, 100)), (300, 300)),
+        'cloud': pg.transform.smoothscale(load('assets/weather/cloud.png', (100, 100)), (300, 300))},
     'spotify': {
         'logo': load('assets/spotify/logo.png', (295, 89)),
         'pause': (load('assets/spotify/pause_0.png', (50, 50)),
@@ -218,7 +239,7 @@ class Window:
 
     def log(self, msg, cat=None):
         try:
-            msg = '[{0}][{1}][{2}] {3}.'.format(datetime.now().strftime('%x %X'), cat if cat else 'LOG', self.name, msg)
+            msg = f"[{datetime.now().strftime('%x %X')}][{cat if cat else 'LOG'}][{self.name}] {msg}."
             print(msg)
             if LOGGING:
                 with open('miniplayer.log', 'a') as file:
@@ -231,7 +252,7 @@ class Window:
     def err(self, msg, cat=None, data=None):
         try:
             msg = '[{0}][{1}][{2}] {3}!{4}'.format(datetime.now().strftime('%x %X'), cat if cat else 'ERR', self.name,
-                                                   msg, ' ({0})'.format(data) if data else '')
+                                                   msg, f' ({data})' if data else '')
             print(msg)
             with open('miniplayer_err.log', 'a') as file:
                 file.write(msg + '\n')
@@ -399,7 +420,7 @@ class BACKLIGHT(Window):
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
         if BACKLIGHT_CONTROL and pigpio:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
-        self.log('Set brightness to {0}'.format(self.brightness))
+        self.log(f'Set brightness to {self.brightness}')
 
     def stop(self):
         self.set(0)
@@ -584,7 +605,7 @@ class SETTINGS(Window):
         # CLOSE
         surf.blit(*render_text('Close', 35, bold=True, midleft=(close.right + temp, close.centery)))
         # MQTT INFO
-        surf.blit(*render_text('Connection: {0}   Username: {1}'.format(MQTT_IP, Mqtt.mac_address), 30, bold=True,
+        surf.blit(*render_text(f'Connection: {MQTT_IP}   Username: {Mqtt.mac_address}', 30, bold=True,
                                midbottom=(CENTER[0], HEIGHT - 10)))
 
         if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
@@ -627,7 +648,7 @@ class MQTT(Window):
         self.subscribed = {}
         self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
         self._mqtt = mqtt_client.Client(self.mac_address)
-        self._mqtt.will_set('/miniplayer/connection/{0}'.format(self.mac_address), payload='disconnected')
+        self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
         self._mqtt.on_message = self._global_response
         self._mqtt.loop_start()
         self.reconnect_pending = not self.connect()  # If not connected on boot, set to start reconnect.
@@ -651,11 +672,11 @@ class MQTT(Window):
             self._mqtt.reinitialise(self.mac_address)
             if MQTT_USER and MQTT_PASS:  # If username and password
                 self._mqtt.username_pw_set(MQTT_USER, MQTT_PASS)
-                self.log('Set credentials: {0}, {1}'.format(MQTT_USER, MQTT_PASS))
-            self._mqtt.will_set('/miniplayer/connection/{0}'.format(self.mac_address), payload='disconnected')
+                self.log(f'Set credentials: {MQTT_USER}, {MQTT_PASS}')
+            self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
             self._mqtt.on_message = self._global_response
             self._mqtt.loop_start()
-            self.log("Connecting to '{0}' with username '{1}'".format(MQTT_IP, self.mac_address))
+            self.log(f"Connecting to '{MQTT_IP}' with username '{self.mac_address}'")
             if ani:
                 Loading_ani.start(msg='Connecting...', msg_colour=Colour['amber'])
             else:
@@ -666,8 +687,7 @@ class MQTT(Window):
                 while not self._mqtt.is_connected():  # Wait for MQTT to connect
                     pg.time.wait(250)
                     if round(timer() - temp, 2) >= 10:  # Timeout after 10s
-                        self.err('Connection to {0} failed: Timed out'.format(MQTT_IP),
-                                 data="username={0}".format(self.mac_address))
+                        self.err(f'Connection to {MQTT_IP} failed: Timed out', data=f'username={self.mac_address}')
                         Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                         pg.time.wait(1500)
                         if ani:
@@ -675,15 +695,14 @@ class MQTT(Window):
                         return False
 
             except Exception as err:  # If failure to connect
-                self.err('Connection to {0} failed: {1}'.format(MQTT_IP, err),
-                         data="username={0}".format(self.mac_address))
+                self.err(f'Connection to {MQTT_IP} failed: {err}', data=f'username={self.mac_address}')
                 Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                 pg.time.wait(1500)
                 if ani:
                     Loading_ani.stop()
                 return False
 
-            self.send('/miniplayer/connection/{0}'.format(self.mac_address), 'connected')  # If connected
+            self.send(f'/miniplayer/connection/{self.mac_address}', 'connected')  # If connected
             self.connected = True
             self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
             self._mqtt.on_disconnect = self._set_reconnect
@@ -691,12 +710,12 @@ class MQTT(Window):
             pg.time.wait(1500)
             if ani:
                 Loading_ani.stop()
-            self.log("Connected to '{0}' with username '{1}'".format(MQTT_IP, self.mac_address))
+            self.log(f"Connected to '{MQTT_IP}' with username '{self.mac_address}'")
             return True
 
     def disconnect(self):
         if self.connected or self._mqtt.is_connected():
-            self.send('/miniplayer/connection/{0}'.format(self.mac_address), 'disconnected')
+            self.send(f'/miniplayer/connection/{self.mac_address}', 'disconnected')
             self.unsubscribe(None, unsub_all=True)
             self.connected = False
 
@@ -715,9 +734,9 @@ class MQTT(Window):
             if self.connected:
                 break
             else:
-                self.log('Waiting for {0}s'.format(convert_s(retry_delay)))
+                self.log(f'Waiting for {convert_s(retry_delay)}s')
                 for temp in range(0, round(retry_delay)):
-                    Loading_ani.msg = 'Reconnecting (retry in {0})'.format(convert_s(retry_delay - temp))
+                    Loading_ani.msg = f'Reconnecting (retry in {convert_s(retry_delay - temp)})'
                     pg.time.wait(1000)
                 if retry_delay < 1800:  # Cap at half an hour between attempts
                     retry_delay *= 2
@@ -738,9 +757,9 @@ class MQTT(Window):
                 if retain:
                     self.retained.update({topic: response})
                 self.subscribed.update({topic: response})
-                self.log("Subscribed to '{0}'{1}".format(topic, ' (retained)' if retain else ''))
+                self.log(f"Subscribed to '{topic}'{' (retained)' if retain else ''}")
             else:
-                self.log("Already subscribed to '{0}'{1}".format(topic, ' (retained)' if retain else ''), cat='WRN')
+                self.log(f"Already subscribed to '{topic}'{' (retained)' if retain else ''}", cat='WRN')
 
     def unsubscribe(self, topics: str or tuple, unsub_all=False):
         if unsub_all:
@@ -756,13 +775,13 @@ class MQTT(Window):
                 self._mqtt.unsubscribe(topic)
                 if topic in self.subscribed:
                     self.subscribed.pop(topic)
-                    self.log("Unsubscribed from '{0}'".format(topic))
+                    self.log(f"Unsubscribed from '{topic}'")
                 else:
-                    self.log("'{0}' not in subscriptions".format(topic), cat='WRN')
+                    self.log(f"'{topic}' not in subscriptions", cat='WRN')
 
                 if topic in self.retained:
                     self.retained.pop(topic)
-                    self.log("Removed '{0}' from retained subscriptions".format(topic))
+                    self.log(f"Removed '{topic}' from retained subscriptions")
 
     def start_retained(self):
         self.log('Starting retained topics')
@@ -772,7 +791,7 @@ class MQTT(Window):
     def send(self, topic: str, payload):
         msg = str(payload).replace("'", "\"")
         self._mqtt.publish(topic, msg)
-        self.log("Sent '{0}' to '{1}'".format(msg, topic))
+        self.log(f"Sent '{msg}' to '{topic}'")
 
     def update(self):
         if self._last_msg_time < pg.time.get_ticks():  # If no msg since auto_reconnect ms
@@ -781,7 +800,7 @@ class MQTT(Window):
 
 
 class LOCALWEATHER(Window):
-    _mqtt_active = '/miniplayer/weather/local/active/{0}'.format(MQTT.mac_address)
+    _mqtt_active = f'/miniplayer/weather/local/active/{MQTT.mac_address}'
     _mqtt_response = '/miniplayer/weather/local/response'
 
     def __init__(self):
@@ -820,17 +839,16 @@ class LOCALWEATHER(Window):
 
     def get_icon(self, icon: str):
         try:
-            self.icon = pg.image.load(io.BytesIO(requests.get(
-                'http://{0}:{1}/weather/icon?id={2}'.format(NODERED_IP, NODERED_PORT, icon)).content))
+            self.icon = Img['weather'][icon]
             self.icon = self.icon, self.icon.get_rect(topleft=(70, 40))
         except Exception or BaseException as err:
             handle(err)
-            self.err('Failed to load icon', data='id={0}'.format(icon))
-            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+            self.err('Failed to load icon', data=f'id={icon}')
+            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 300, 300))
         except:
             print('Unhandled exception -> LOCALWEATHER.get_icon()')
-            self.err('Failed to load icon', data='id={0}'.format(icon))
-            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+            self.err('Failed to load icon', data=f'id={icon}')
+            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 300, 300))
 
     def receive(self, client, data, message):
         if data or client:
@@ -845,24 +863,24 @@ class LOCALWEATHER(Window):
                                                  midleft=(self.icon[1].right + 20, self.icon[1].centery - 17))
                 self._data['state'] = render_text(self.value['state'], 32, topleft=(self._data['temp'][1].left,
                                                                                     self._data['temp'][1].bottom + 5))
-                self._data['temp f'] = render_text('Feels like: {0}°c'.format(self.value['temp']['feels']),
-                                                   18, midtop=(130, self._data['state'][1].bottom + 25))
-                self._data['temp r'] = render_text('L: {0}°c  H: {1}°c'.format(self.value['temp']['min'],
-                                                                               self.value['temp']['max']),
-                                                   18, midtop=(350, self._data['temp f'][1].top))
-                self._data['hum'] = render_text('Humidity: {0}%'.format(self.value['hum']), 18,
+                self._data['temp f'] = render_text(f"Feels like: {self.value['temp']['feels']}°c", 18,
+                                                   midtop=(130, self._data['state'][1].bottom + 25))
+                self._data['temp r'] = render_text(f"L: {self.value['temp']['min']}°c  "
+                                                   f"H: {self.value['temp']['max']}°c", 18,
+                                                   midtop=(350, self._data['temp f'][1].top))
+                self._data['hum'] = render_text(f"Humidity: {self.value['hum']}%", 18,
                                                 midtop=(self._data['temp f'][1].centerx,
                                                         self._data['temp f'][1].bottom + 15))
                 self._data['rain'] = render_text(
-                    ('Snow' if self._snow else 'Rain') + ': {0}mm/h'.format(self.value['rain']),
-                    18, midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 15))
+                    ('Snow' if self._snow else 'Rain') + f": {self.value['rain']}mm/h", 18,
+                    midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 15))
                 self._data['wind'] = render_text('Wind: {0}mph, {1}, {2}mph avg'.format(
                     self.value['wind']['gust'], self.value['wind']['cardinal'], self.value['wind']['speed']), 18,
                     midtop=(CENTER[0], self._data['hum'][1].bottom + 15))
-                self._data['clouds'] = render_text('Clouds: {0}%'.format(self.value['clouds']), 18,
+                self._data['clouds'] = render_text(f"Clouds: {self.value['clouds']}%", 18,
                                                    midtop=(self._data['hum'][1].centerx,
                                                            self._data['wind'][1].bottom + 15))
-                self._data['vis'] = render_text('Visibility: {0}%'.format(int((self.value['vis'] / 10000) * 100)), 18,
+                self._data['vis'] = render_text(f"Visibility: {int((self.value['vis'] / 10000) * 100)}%", 18,
                                                 midtop=(self._data['rain'][1].centerx,
                                                         self._data['wind'][1].bottom + 15))
                 self.timestamp = strftime('%H:%M')
@@ -873,7 +891,7 @@ class LOCALWEATHER(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: {0}'.format(err)
+                    self.timestamp = f'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error -> unknown')
@@ -938,7 +956,7 @@ class LOCALWEATHER(Window):
 
 
 class SPOTIFY(Window):
-    _mqtt_active = '/miniplayer/spotify/active/{0}'.format(MQTT.mac_address)
+    _mqtt_active = f'/miniplayer/spotify/active/{MQTT.mac_address}'
     _mqtt_action = '/miniplayer/spotify/action'
     _mqtt_response = '/miniplayer/spotify/response'
     _mqtt_device_response = '/miniplayer/spotify/device'
@@ -985,10 +1003,10 @@ class SPOTIFY(Window):
                 surf = pg.transform.smoothscale(pg.image.load(io.BytesIO(response.content)), (140, 140))
                 return surf
             except:
-                self.err('Failed to load playlist image (url={0})'.format(url))
+                self.err(f'Failed to load playlist image (url={url})')
                 return pg.surface.Surface((140, 140))
         else:
-            self.err('Failed to get playlist image (code={0}, url={1})'.format(response.status_code, url))
+            self.err(f'Failed to get playlist image (code={response.status_code}, url={url})')
             return pg.surface.Surface((140, 140))
 
     def _load_default(self):
@@ -1082,7 +1100,7 @@ class SPOTIFY(Window):
     def _get_playlists(self) -> bool:
         self.log('Fetching playlists..')
         try:  # Request data from Node-RED
-            response = requests.get('http://{0}:{1}/spotify/playlists'.format(NODERED_IP, NODERED_PORT), timeout=10)
+            response = requests.get(f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists', timeout=10)
         except Exception as err:
             self._playlists = []
             self.err('Playlist fetch failed', data=err)
@@ -1102,7 +1120,7 @@ class SPOTIFY(Window):
                         self._playlists.append(playlists[key.replace('spotify:playlist:', '')])
                     except KeyError:
                         Settings.value['Playlist Order'].remove(key)
-                        self.log("Removed invalid playlist from settings ('{0}')".format(key))
+                        self.log(f"Removed invalid playlist from settings ('{key}')")
                 for key in playlists:  # For every playlist
                     if key not in Settings.value['Playlist Order']:  # If unknown
                         self._playlists.append(playlists[key])  # Add unknown playlists to end
@@ -1138,10 +1156,10 @@ class SPOTIFY(Window):
                         playlist['images'] = self._fetch_image(playlist['images'][0]['url'])  # Load img
                         if os.path.isdir('playlists'):
                             try:
-                                pg.image.save_extended(playlist['images'], '{0}.png'.format(playlist['id']), 'png')
-                                shutil.move('{0}.png'.format(playlist['id']),
-                                            'playlists/{0}.png'.format(playlist['id']))
-                                self.log('Cached image (id:{0})'.format(playlist['id']))
+                                pg.image.save_extended(playlist['images'], f"{playlist['id']}.png", 'png')
+                                shutil.move(f"{playlist['id']}.png",
+                                            f"playlists/{playlist['id']}.png")
+                                self.log(f"Cached image (id:{playlist['id']})")
                             except PermissionError:
                                 self.err('Failed to cache image -> write permission denied')
                             except TypeError:
@@ -1150,9 +1168,9 @@ class SPOTIFY(Window):
                                 self.err('Failed to cache image -> unknown')
                     else:
                         playlist['images'] = cache[playlist['id']]
-                        self.log('Loaded cache (id:{0})'.format(playlist['id']))
+                        self.log(f"Loaded cache (id:{playlist['id']})")
 
-                self.log('Loaded playlist images (took {0}s)'.format(round(timer() - temp, 2)))
+                self.log(f"Loaded playlist images (took {round(timer() - temp, 2)}s)")
                 return True
 
             except Exception as err:
@@ -1162,12 +1180,12 @@ class SPOTIFY(Window):
                 return False
         else:
             self._playlists = []
-            self.err('Playlist fetch failed (code={0} url={1})'.format(
-                response.status_code, 'http://{0}:{1}/spotify/playlists'.format(NODERED_IP, NODERED_PORT)))
+            self.err(f"Playlist fetch failed (code={response.status_code} "
+                     f"url={f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists'})")
             return False
 
     def _update_playlists(self, uid: str):
-        response = requests.get('http://{0}:{1}/spotify/playlists?id={2}'.format(NODERED_IP, NODERED_PORT, uid))
+        response = requests.get(f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists?id={uid}')
         if response.status_code == 200:  # Fetch playlist
             try:
                 playlist = json.load(io.BytesIO(response.content))  # Decode response
@@ -1178,15 +1196,15 @@ class SPOTIFY(Window):
                     Settings.value['Playlist Order'].append(playlist['id'])
                     Settings.save()
                     playlist['images'] = self._fetch_image(playlist['images'][0]['url'])
-                    self.log('Playlist updated (id={0}, name={1})'.format(uid, playlist['name']))
+                    self.log(f"Playlist updated (id={uid}, name={playlist['name']})")
                     return playlist['id']
 
             except:
-                self.err('Failed to decode playlist during update (id={0})')
+                self.err(f'Failed to decode playlist during update (id={uid})')
                 return False
         else:
             if response.status_code != 500:
-                self.err('Failed to update playlists (code={0}, id={1})'.format(response.status_code, uid))
+                self.err(f'Failed to update playlists (code={response.status_code}, id={uid})')
             return False
 
     def _save_playlists(self):
@@ -1256,7 +1274,7 @@ class SPOTIFY(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: {0}'.format(err)
+                    self.timestamp = f'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error -> unknown')
@@ -1278,7 +1296,7 @@ class SPOTIFY(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: {0}'.format(err)
+                    self.timestamp = f'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error 2 -> unknown')
@@ -1384,7 +1402,7 @@ class SPOTIFY(Window):
             surf.blit(*temp)
             if self._playlists:  # If there are playlists
                 if self._active_playlist and 'name' in self._active_playlist.keys():
-                    surf.blit(*render_text('Currently playing: {0}'.format(self._active_playlist['name']), 30,
+                    surf.blit(*render_text(f"Currently playing: {self._active_playlist['name']}", 30,
                                            midtop=(CENTER[0], temp[1].bottom + 10)))
                 for index in range(0, len(self._data['plist_rect']) if len(
                         self._playlists) > len(self._data['plist_rect']) else len(self._playlists)):  # For shown plists
@@ -1399,7 +1417,7 @@ class SPOTIFY(Window):
                                            topleft=(rect['cover'].right + 20, rect['cover'].top + 25)))
                     surf.blit(self._data['play'][1] if self._active_playlist != plist else
                               self._data['plist']['pause'], rect['play'])  # Play button
-                    surf.blit(*render_text('{0} Songs'.format(plist['tracks']['total']), 30,
+                    surf.blit(*render_text(f"{plist['tracks']['total']} Songs", 30,
                                            midleft=(rect['play'].right + 15, rect['play'].centery)))  # Song count
                     surf.blit(self._data['plist']['move_d'][1 if index < len(
                               self._playlists) - 1 else 0], rect['move_d'])
@@ -1474,7 +1492,7 @@ class SPOTIFY(Window):
                               if self.device_value['volume_percent'] + 5 <= 100 else 100)
                 else:
                     Mqtt.send(self._mqtt_action, action)
-                self.log('{0} requested'.format(action.title()))
+                self.log(f'{action.title()} requested')
 
             if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLIST (open)
                 Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
@@ -1490,14 +1508,14 @@ class SPOTIFY(Window):
                 self._pending_action == 'decrease_volume' and \
                 self.device_value['volume_percent'] < self._prev_value or \
                 self._pending_action == 'shuffle' and self.value['shuffle'] != self._prev_value:
-            self.log('{0} confirmed'.format(self._pending_action.title()))
-            set_info('{0} confirmed'.format(self._pending_action.title().replace('_', ' ')))
+            self.log(f'{self._pending_action.title()} confirmed')
+            set_info(f"{self._pending_action.title().replace('_', ' ')} confirmed")
             self._action_time = 0
             self._prev_value = None
             self._pending_action = None
 
         if self._action_time and pg.time.get_ticks() >= self._action_time:
-            self.err('{0} timed out'.format(self._pending_action))
+            self.err(f'{self._pending_action} timed out')
             self._timeout_time = pg.time.get_ticks() + 5000
             self._action_time = 0
             self._prev_value = None
@@ -1531,21 +1549,21 @@ class SPOTIFY(Window):
                         if rect['play'].collidepoint(Mouse_pos):  # Play
                             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                             Mqtt.send(self._mqtt_action, plist['uri'])
-                            self.log("Playlist '{0}' ({1}) requested".format(plist['id'], plist['name']))
+                            self.log(f"Playlist '{plist['id']}' ({plist['name']}) requested")
                         elif rect['move_u'].collidepoint(Mouse_pos) and index > 0:  # Move up
                             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                             self._playlists[index] = self._playlists[index - 1]
                             self._playlists[index - 1] = plist
-                            self.log("Move playlist '{0}' ({1}) up".format(plist['id'], plist['name']))
+                            self.log(f"Move playlist '{plist['id']}' ({plist['name']}) up")
                         elif rect['move_d'].collidepoint(Mouse_pos) and index < len(self._playlists) - 1:  # Move down
                             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                             self._playlists[index] = self._playlists[index + 1]
                             self._playlists[index + 1] = plist
-                            self.log("Move playlist '{0}' ({1}) down".format(plist['id'], plist['name']))
+                            self.log(f"Move playlist '{plist['id']}' ({plist['name']}) down")
 
 
 class OCTOPRINT(Window):
-    _mqtt_active = '/miniplayer/octoprint/active/{0}'.format(MQTT.mac_address)
+    _mqtt_active = f'/miniplayer/octoprint/active/{MQTT.mac_address}'
 
     def __init__(self):
         super().__init__('OctoPrint')
@@ -1611,9 +1629,9 @@ class OCTOPRINT(Window):
                 self.value['progress'] = msg['progress']
                 self.value['state'] = msg['state']
                 self.printing = self.value['state']['flags']['printing']
-                self._data['state'] = render_text('{0}: {1}%'.format(self.value['state']['text'],
-                                                                     round(self.value['progress']['completion'])),
-                                                  25, bold=True, topleft=(15, Menu.left[1].bottom + 15))
+                self._data['state'] = render_text(
+                    f'{self.value["state"]["text"]}: {round(self.value["progress"]["completion"])}%', 25, bold=True,
+                    topleft=(15, Menu.left[1].bottom + 15))
                 self._data['state_bar'] = render_bar((self._data['state'][1].width, 10),
                                                      round(self.value['progress']['completion']), 0, 100,
                                                      topleft=(self._data['state'][1].left,
@@ -1626,7 +1644,7 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: {0}'.format(err)
+                    self.timestamp = f'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error (state) -> unknown')
@@ -1648,7 +1666,7 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: '.format(err)
+                    self.timestamp = f'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error (pos) -> unknown')
@@ -1669,7 +1687,7 @@ class OCTOPRINT(Window):
                 handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: {0}'.format(err)
+                    self.timestamp = 'ERR: {err}'
                 self._load_default()
             except:
                 self.err('MQTT receive error (temp) -> unknown')
@@ -1723,9 +1741,9 @@ def convert_s(sec: int) -> str:
         minutes = sec // 60
         sec -= minutes * 60
         if sec < 10:
-            sec = '0{0}'.format(sec)
+            sec = f'0{sec}'
     elif sec < 10:
-        sec = '0{0}'.format(sec)
+        sec = f'0{sec}'
     if minutes >= 60:
         hours = minutes // 60
         minutes -= hours * 60
@@ -1942,13 +1960,13 @@ if __name__ == '__main__':
     try:  # Create log files for debugging
         if LOGGING:
             with open('miniplayer.log', 'a') as log:
-                log.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
+                log.write(f"\n[{datetime.now().strftime('%x %X')}][NEW][Main] NEW_INSTANCE.\n")
                 if DEBUG:
-                    log.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
+                    log.write(f"\n[{datetime.now().strftime('%x %X')}][DBG][Main] DEBUG ON.\n")
         with open('miniplayer_err.log', 'a') as error:
-            error.write('\n[{0}][NEW][Main] NEW_INSTANCE.\n'.format(datetime.now().strftime('%x %X')))
+            error.write(f"\n[{datetime.now().strftime('%x %X')}][NEW][Main] NEW_INSTANCE.\n")
             if DEBUG:
-                error.write('\n[{0}][DBG][Main] DEBUG ON.\n'.format(datetime.now().strftime('%x %X')))
+                error.write(f"\n[{datetime.now().strftime('%x %X')}][DBG][Main] DEBUG ON.\n")
 
     except (Exception, BaseException) as error:
         handle(error, save=False)  # Do not save as error with logging
