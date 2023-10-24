@@ -61,8 +61,8 @@ try:
         TOUCHSCREEN = launch_usr['TOUCHSCREEN']  # Enable touchscreen mode (hides cursor, no clicking ect)
         FULLSCREEN = launch_usr['FULLSCREEN']  # Enable fullscreen mode (takes over entire screen)
         BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Type of backlight control (0=Off, 1=Software, 2=GPIO)
-        MINIMUM_BRIGHTNESS = 18  # Minimum brightness 0 - 100%
-        BACKLIGHT_PIN = 0  # Pin (BCIM) to use if BACKLIGHT_CONTROL = 2
+        MINIMUM_BRIGHTNESS = launch_usr['MIN_BRIGHTNESS']  # Minimum brightness 0 - 100%
+        BACKLIGHT_PIN = launch_usr['BACKLIGHT_PIN']  # Pin (BCIM) to use if BACKLIGHT_CONTROL = 2
         FPS = launch_usr['FPS']  # Frames per second (default: 30 )
         RESOLUTION = launch_usr['RESOLUTION']  # Width and height of the display or window (default: 1280, 720 )
         SCREEN = launch_usr['SCREEN']  # Screen number (for multiple displays)
@@ -96,6 +96,7 @@ except FileNotFoundError or KeyError:
                 "TOUCHSCREEN": False,
                 "FULLSCREEN": False,
                 "BACKLIGHT": 0,
+                "MIN_BRIGHTNESS": 5,
                 "BACKLIGHT_PIN": 0,
                 "FPS": 30,
                 "RESOLUTION": [1280, 720],
