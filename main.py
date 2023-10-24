@@ -178,7 +178,6 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'settings': load('assets/settings.png', (50, 50)),
         'cross': load('assets/cross.png', (50, 50))},
     'weather': {
-        'unknown': pg.transform.smoothscale(load('assets/weather/unknown.png', (100, 100)), (300, 300)),
         'storm': pg.transform.smoothscale(load('assets/weather/storm.png', (100, 100)), (300, 300)),
         'storm_2': pg.transform.smoothscale(load('assets/weather/storm_2.png', (100, 100)), (300, 300)),
         'storm_3': pg.transform.smoothscale(load('assets/weather/storm_3.png', (100, 100)), (300, 300)),
@@ -814,41 +813,43 @@ class LOCALWEATHER(Window):
     def _load_default(self):
         self._data = {}
         self._data.update({'temp': render_text(
-            '-°c', 64, bold=True, midleft=(self.icon[1].right + 20, self.icon[1].centery - 17))})
+            '- °c', 100, bold=True, midleft=(self.icon[1].right + 60, self.icon[1].centery - 25))})
         self._data.update({'state': render_text(
-            'Unknown', 32, topleft=(self._data['temp'][1].left, self._data['temp'][1].bottom + 5))})
+            'Unknown', 50, topleft=(self._data['temp'][1].left, self._data['temp'][1].bottom + 10))})
         self._data.update({'temp f': render_text(
-            'Feels like: -°c', 18, midtop=(130, self._data['state'][1].bottom + 25))})
-        self._data.update({'temp r': render_text('L: -°c  H: -°c', 18, midtop=(350, self._data['temp f'][1].top))})
+            'Feels like: - °c', 35, midtop=(CENTER[0] / 2, self._data['state'][1].bottom + 70))})
+        self._data.update({'temp r': render_text(
+            'L: - °c  H: - °c', 35, midtop=(CENTER[0] + CENTER[0] / 2, self._data['temp f'][1].top))})
         self._data.update({'hum': render_text(
-            'Humidity: -%', 18, midtop=(self._data['temp f'][1].centerx, self._data['temp f'][1].bottom + 15))})
+            'Humidity: - %', 35, midtop=(self._data['temp f'][1].centerx, self._data['temp f'][1].bottom + 45))})
         self._data.update({'rain': render_text(
-            ('Snow' if self._snow else 'Rain') + ': -mm/h', 18,
-            midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 15))})
+            ('Snow' if self._snow else 'Rain') + ': - mm/h', 35,
+            midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 45))})
         self._data.update({'wind': render_text(
-            'Wind: -mph, Unknown, -mph avg', 18, midtop=(CENTER[0], self._data['hum'][1].bottom + 15))})
+            'Wind: - mph               Unknown               - mph avg', 35,
+            midtop=(CENTER[0], self._data['hum'][1].bottom + 45))})
         self._data.update({'clouds': render_text(
-            'Clouds: -%', 18, midtop=(self._data['hum'][1].centerx, self._data['wind'][1].bottom + 15))})
+            'Clouds: - %', 35, midtop=(self._data['hum'][1].centerx, self._data['wind'][1].bottom + 45))})
         self._data.update({'vis': render_text(
-            'Visibility: -km', 18, midtop=(self._data['rain'][1].centerx, self._data['wind'][1].bottom + 15))})
+            'Visibility: - km', 35, midtop=(self._data['rain'][1].centerx, self._data['wind'][1].bottom + 45))})
         self.value = {
             'wind': {'cardinal': 'Unknown', 'speed': 0, 'gust': 0},
-            'clouds': 0, 'snow': None, 'state': 'Unknown', 'icon': 'unknown',
+            'clouds': 0, 'snow': None, 'state': 'Unknown', 'icon': 'cloud',
             'temp': {'real': 0, 'feels': 0, 'min': 0}, 'rain': 0, 'hum': 0, 'vis': 0}
-        self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 128, 128))
+        self.icon = Img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
 
     def get_icon(self, icon: str):
         try:
             self.icon = Img['weather'][icon]
-            self.icon = self.icon, self.icon.get_rect(topleft=(70, 40))
+            self.icon = self.icon, self.icon.get_rect(topright=(CENTER[0] - 30, 50))
         except Exception or BaseException as err:
             handle(err)
             self.err('Failed to load icon', data=f'id={icon}')
-            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 300, 300))
+            self.icon = Img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
         except:
             print('Unhandled exception -> LOCALWEATHER.get_icon()')
             self.err('Failed to load icon', data=f'id={icon}')
-            self.icon = Img['weather']['unknown'], pg.rect.Rect((70, 40, 300, 300))
+            self.icon = Img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
 
     def receive(self, client, data, message):
         if data or client:
@@ -859,30 +860,30 @@ class LOCALWEATHER(Window):
                 self.value['state'] = self.value['state'].replace('Clouds', 'Cloudy')
                 self._snow = self.value['snow']
                 self.get_icon(self.value['icon'])
-                self._data['temp'] = render_text(str(self.value['temp']['real']) + '°c', 64, bold=True,
-                                                 midleft=(self.icon[1].right + 20, self.icon[1].centery - 17))
-                self._data['state'] = render_text(self.value['state'], 32, topleft=(self._data['temp'][1].left,
-                                                                                    self._data['temp'][1].bottom + 5))
-                self._data['temp f'] = render_text(f"Feels like: {self.value['temp']['feels']}°c", 18,
-                                                   midtop=(130, self._data['state'][1].bottom + 25))
-                self._data['temp r'] = render_text(f"L: {self.value['temp']['min']}°c  "
-                                                   f"H: {self.value['temp']['max']}°c", 18,
-                                                   midtop=(350, self._data['temp f'][1].top))
-                self._data['hum'] = render_text(f"Humidity: {self.value['hum']}%", 18,
+                self._data['temp'] = render_text(str(self.value['temp']['real']) + '°c', 100, bold=True,
+                                                 midleft=(self.icon[1].right + 60, self.icon[1].centery - 25))
+                self._data['state'] = render_text(self.value['state'], 50, topleft=(self._data['temp'][1].left,
+                                                                                    self._data['temp'][1].bottom + 10))
+                self._data['temp f'] = render_text(f"Feels like: {round(self.value['temp']['feels'], 1)}°c", 35,
+                                                   midtop=(CENTER[0] / 2, self._data['state'][1].bottom + 70))
+                self._data['temp r'] = render_text(f"Lo: {self.value['temp']['min']}°c  "
+                                                   f"Hi: {self.value['temp']['max']}°c", 35,
+                                                   midtop=(CENTER[0] + CENTER[0] / 2, self._data['temp f'][1].top))
+                self._data['hum'] = render_text(f"Humidity: {self.value['hum']}%", 35,
                                                 midtop=(self._data['temp f'][1].centerx,
-                                                        self._data['temp f'][1].bottom + 15))
+                                                        self._data['temp f'][1].bottom + 45))
                 self._data['rain'] = render_text(
-                    ('Snow' if self._snow else 'Rain') + f": {self.value['rain']}mm/h", 18,
-                    midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 15))
-                self._data['wind'] = render_text('Wind: {0}mph, {1}, {2}mph avg'.format(
-                    self.value['wind']['gust'], self.value['wind']['cardinal'], self.value['wind']['speed']), 18,
-                    midtop=(CENTER[0], self._data['hum'][1].bottom + 15))
-                self._data['clouds'] = render_text(f"Clouds: {self.value['clouds']}%", 18,
+                    ('Snow' if self._snow else 'Rain') + f": {self.value['rain']}mm/h", 35,
+                    midtop=(self._data['temp r'][1].centerx, self._data['temp r'][1].bottom + 45))
+                self._data['wind'] = render_text('Wind: {0}mph             {1}             {2}mph avg'.format(
+                    self.value['wind']['gust'], self.value['wind']['cardinal'], self.value['wind']['speed']), 35,
+                    midtop=(CENTER[0], self._data['hum'][1].bottom + 45))
+                self._data['clouds'] = render_text(f"Clouds: {self.value['clouds']}%", 35,
                                                    midtop=(self._data['hum'][1].centerx,
-                                                           self._data['wind'][1].bottom + 15))
-                self._data['vis'] = render_text(f"Visibility: {int((self.value['vis'] / 10000) * 100)}%", 18,
+                                                           self._data['wind'][1].bottom + 45))
+                self._data['vis'] = render_text(f"Visibility: {int((self.value['vis'] / 10000) * 100)}%", 35,
                                                 midtop=(self._data['rain'][1].centerx,
-                                                        self._data['wind'][1].bottom + 15))
+                                                        self._data['wind'][1].bottom + 45))
                 self.timestamp = strftime('%H:%M')
                 if self._timestamp_color != Colour['green']:
                     self._timestamp_color = Colour['green']
@@ -907,7 +908,6 @@ class LOCALWEATHER(Window):
 
         self.log('Starting..')
         Mqtt.subscribe(self._mqtt_response, self.receive)
-        self.get_icon('unknown')
         self._load_default()
         Mqtt.send(self._mqtt_active, True)  # Tell Node-RED weather is active
         self.active = True
@@ -929,7 +929,7 @@ class LOCALWEATHER(Window):
     def draw(self, surf=Display):
         surf.fill(Colour['black'])
         surf.blit(Bg, (0, 0))
-        surf.blit(*render_text('Local weather', 20, bold=True, center=(CENTER[0], Menu.right[1].centery)))
+        surf.blit(*render_text('Local weather', 35, bold=True, center=(CENTER[0], Menu.right[1].centery)))
         surf.blit(*self.icon)
         surf.blit(*self._data['temp'])
         surf.blit(*self._data['state'])
@@ -939,12 +939,13 @@ class LOCALWEATHER(Window):
         surf.blit(*self._data['rain'])
         surf.blit(*self._data['wind'])
         surf.blit(*self._data['clouds'])
-        surf.blit(*render_bar((140, 10), self.value['clouds'], 0, 100, fill_color=Colour['grey'],
-                              midtop=(self._data['clouds'][1].centerx, self._data['clouds'][1].bottom + 10)))
+        surf.blit(*render_bar((350, 18), self.value['clouds'], 0, 100, fill_color=Colour['grey'],
+                              midtop=(self._data['clouds'][1].centerx, self._data['clouds'][1].bottom + 20)))
         surf.blit(*self._data['vis'])
-        surf.blit(*render_bar((140, 10), self.value['vis'], 0, 100, fill_color=Colour['grey'],
-                              midtop=(self._data['vis'][1].centerx, self._data['vis'][1].bottom + 10)))
-        surf.blit(*render_text(self.timestamp, 15, self._timestamp_color,
+        surf.blit(*render_bar((350, 18), self.value['vis'], 0, 100, fill_color=Colour['grey'],
+                              midtop=(self._data['vis'][1].centerx, self._data['vis'][1].bottom + 20)))
+
+        surf.blit(*render_text(self.timestamp, 30, self._timestamp_color,
                                bold=True if 'ERR' in self.timestamp else False, bottomleft=(5, HEIGHT - 3)))
 
     def update(self):
