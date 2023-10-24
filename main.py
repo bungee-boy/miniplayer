@@ -60,11 +60,23 @@ try:
         MQTT_AUTO_RECONNECT = launch_usr['MQTT_AUTO_RECONNECT']  # Reconnect if no traffic for x ms (default: 900000 )
         TOUCHSCREEN = launch_usr['TOUCHSCREEN']  # Enable touchscreen mode (hides cursor, no clicking ect)
         FULLSCREEN = launch_usr['FULLSCREEN']  # Enable fullscreen mode (takes over entire screen)
-        BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Enable backlight control through GPIO pins (Requires pigpio!)
+        BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Type of backlight control (0=Off, 1=Software, 2=GPIO)
+        MINIMUM_BRIGHTNESS = 18  # Minimum brightness 0 - 100%
+        BACKLIGHT_PIN = 0  # Pin (BCIM) to use if BACKLIGHT_CONTROL = 2
         FPS = launch_usr['FPS']  # Frames per second (default: 30 )
         RESOLUTION = launch_usr['RESOLUTION']  # Width and height of the display or window (default: 1280, 720 )
         SCREEN = launch_usr['SCREEN']  # Screen number (for multiple displays)
         SCREENSAVER_DELAY = launch_usr['SCREENSAVER']  # Active if no movement after x ms and enabled (default: 120000 )
+
+        if BACKLIGHT_CONTROL == 2 and not pigpio:
+            print("\nWARNING: BACKLIGHT_CONTROL is set to Hardware ('2'), but pigpio is not present!\n"
+                  "         Fallback to Software mode ('1') to prevent crash...")
+            BACKLIGHT_CONTROL = 1
+        pg.display.init()
+        if SCREEN > pg.display.get_num_displays() - 1:
+            print(f"\nWARNING: SCREEN is set to display {SCREEN} which does not exist!\n"
+                  "         Fallback to screen 0 to prevent crash...")
+            SCREEN = 0
 except FileNotFoundError or KeyError:
     print("\nWARNING: 'user_settings.json' failed, attempting to fix.\n")
     try:
@@ -83,7 +95,8 @@ except FileNotFoundError or KeyError:
                 "MQTT_AUTO_RECONNECT": 900000,
                 "TOUCHSCREEN": False,
                 "FULLSCREEN": False,
-                "BACKLIGHT": False,
+                "BACKLIGHT": 0,
+                "BACKLIGHT_PIN": 0,
                 "FPS": 30,
                 "RESOLUTION": [1280, 720],
                 "SCREEN": 0,
@@ -394,14 +407,17 @@ class BACKLIGHT(Window):
 
     def __init__(self):
         super().__init__('Backlight')
-        if BACKLIGHT_CONTROL and pigpio:
+        if BACKLIGHT_CONTROL == 2 and pigpio:
             self._pi = pigpio.pi()
             self._pi.set_mode(self.pin, pigpio.OUTPUT)
+        self.software_dim = pg.surface.Surface((WIDTH, HEIGHT))
         self.brightness = 0
         self.state = False
         Mqtt.subscribe(self._mqtt_response, self.receive, retain=True)
+        self.log(f"Running in mode {BACKLIGHT_CONTROL}")
         self.set(100)
-        Mqtt.send(self._mqtt_request, True)
+        if BACKLIGHT_CONTROL:  # If enabled, request from Node-Red
+            Mqtt.send(self._mqtt_request, True)
 
     def receive(self, client, data, message):
         if data or client:
@@ -417,13 +433,16 @@ class BACKLIGHT(Window):
 
     def set(self, brightness: int):
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
-        if BACKLIGHT_CONTROL and pigpio:
+        if BACKLIGHT_CONTROL == 2 and pigpio:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
+        elif BACKLIGHT_CONTROL == 1:  # Software dimming
+            self.brightness = MINIMUM_BRIGHTNESS if self.brightness < MINIMUM_BRIGHTNESS else self.brightness  # Limit
+            self.software_dim.set_alpha(255 - round(self.brightness / 100 * 255))
         self.log(f'Set brightness to {self.brightness}')
 
     def stop(self):
         self.set(0)
-        if BACKLIGHT_CONTROL and pigpio:
+        if BACKLIGHT_CONTROL == 2 and pigpio:
             self._pi.stop()
         self.log('Backlight stopped')
 
@@ -1899,12 +1918,12 @@ def main():
                 if not Current_window.active:  # ALL WINDOWS
                     print('[Main] Starting Current_window...')
                     Current_window.start()
-                # temp = timer()
+                # update_time = timer()
                 Current_window.update()
-                # temp = round((timer() - temp) * 1000, 2)
-                # temp1 = timer()
+                # update_time = round((timer() - temp) * 1000, 2)
+                # draw_time = timer()
                 Current_window.draw()
-                # print(f"Update: {temp}ms, Draw: {round((timer() - temp1) * 1000, 2)}ms")
+                # print(f"Update: {update_time}ms, Draw: {round((timer() - draw_time) * 1000, 2)}ms")
 
                 if Settings.active:  # SETTINGS
                     Menu.allow_screensaver = False
@@ -1944,6 +1963,10 @@ def main():
 
         if Info[0] and Info[2] > pg.time.get_ticks():  # Show info
             Display.blit(*render_text(Info[0], 30, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT - 10)))
+
+        if BACKLIGHT_CONTROL == 1:  # Display brightness through software
+            Display.blit(Backlight.software_dim, (0, 0))
+
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
 
@@ -1995,7 +2018,7 @@ if __name__ == '__main__':
             quit()
 
     g_temp = None  # Start backlight if enabled
-    if pigpio and BACKLIGHT_CONTROL:
+    if BACKLIGHT_CONTROL == 2 and pigpio:
         try:
             g_temp = pigpio.pi()
             g_temp.set_mode(BACKLIGHT.pin, pigpio.OUTPUT)
