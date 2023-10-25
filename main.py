@@ -62,6 +62,7 @@ try:
         FULLSCREEN = launch_usr['FULLSCREEN']  # Enable fullscreen mode (takes over entire screen)
         BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Type of backlight control (0=Off, 1=Software, 2=GPIO)
         MINIMUM_BRIGHTNESS = launch_usr['MIN_BRIGHTNESS']  # Minimum brightness 0 - 100%
+        BRIGHTNESS_OFFSET = launch_usr['BRIGHTNESS_OFFSET']  # Offset brightness 0 - 255
         BACKLIGHT_PIN = launch_usr['BACKLIGHT_PIN']  # Pin (BCIM) to use if BACKLIGHT_CONTROL = 2
         FPS = launch_usr['FPS']  # Frames per second (default: 30 )
         RESOLUTION = launch_usr['RESOLUTION']  # Width and height of the display or window (default: 1280, 720 )
@@ -97,6 +98,7 @@ except FileNotFoundError or KeyError:
                 "FULLSCREEN": False,
                 "BACKLIGHT": 0,
                 "MIN_BRIGHTNESS": 5,
+                "BRIGHTNESS_OFFSET": 0,
                 "BACKLIGHT_PIN": 0,
                 "FPS": 30,
                 "RESOLUTION": [1280, 720],
@@ -433,6 +435,7 @@ class BACKLIGHT(Window):
                 self.set(100)
 
     def set(self, brightness: int):
+        brightness += BRIGHTNESS_OFFSET  # Add offset to brightness
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
         if BACKLIGHT_CONTROL == 2 and pigpio:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
