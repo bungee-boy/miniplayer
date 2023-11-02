@@ -889,8 +889,8 @@ class LOCALWEATHER(Window):
                                                                                     self._data['temp'][1].bottom + 10))
                 self._data['temp f'] = render_text(f"Feels like: {round(self.value['temp']['feels'], 1)}°c", 35,
                                                    midtop=(CENTER[0] / 2, self._data['state'][1].bottom + 70))
-                self._data['temp r'] = render_text(f"Lo: {self.value['temp']['min']}°c  "
-                                                   f"Hi: {self.value['temp']['max']}°c", 35,
+                self._data['temp r'] = render_text(f"Lo: {round(self.value['temp']['min'], 1)}°c  "
+                                                   f"Hi: {round(self.value['temp']['max'], 1)}°c", 35,
                                                    midtop=(CENTER[0] + CENTER[0] / 2, self._data['temp f'][1].top))
                 self._data['hum'] = render_text(f"Humidity: {self.value['hum']}%", 35,
                                                 midtop=(self._data['temp f'][1].centerx,
