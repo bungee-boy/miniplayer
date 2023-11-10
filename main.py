@@ -45,7 +45,7 @@ def handle(err: Exception or BaseException, save=True, repeat=False, traceback=T
 
 
 try:
-    with (open('user_settings.json') as launch_usr):
+    with (open('config.json') as launch_usr):
         launch_usr = json.load(launch_usr)  # Load settings file
         DEBUG = launch_usr['DEBUG']  # Enable debugging features
         LOGGING = launch_usr['LOGGING']  # Enable logging features
@@ -79,9 +79,9 @@ try:
                   "         Fallback to screen 0 to prevent crash...")
             SCREEN = 0
 except FileNotFoundError or KeyError:
-    print("\nWARNING: 'user_settings.json' failed, attempting to fix.\n")
+    print("\nWARNING: 'config.json' failed, attempting to fix.\n")
     try:
-        with open('user_settings.json', 'w') as launch_usr:
+        with open('config.json', 'w') as launch_usr:
             launch_usr.seek(0)
             json.dump({
                 "DEBUG": False,
@@ -104,23 +104,23 @@ except FileNotFoundError or KeyError:
                 "RESOLUTION": [1280, 720],
                 "SCREEN": 0,
                 "SCREENSAVER": 120000}, launch_usr, indent=2)
-        print("'user_settings.json' fixed successfully, please edit to correct settings!")
+        print("'config.json' fixed successfully, please edit to correct settings!")
         try:
             import webbrowser
-            webbrowser.open('user_settings.json')
+            webbrowser.open('config.json')
         finally:
             quit()
     except Exception or BaseException as error:
         handle(error)
         quit()
     except:
-        print('Unhandled exception -> creating user_settings.json')
+        print('Unhandled exception -> creating config.json')
         quit()
 except Exception or BaseException as error:
     handle(error)
     quit()
 except:
-    print('Unhandled exception -> reading user_settings.json')
+    print('Unhandled exception -> reading config.json')
     quit()
 
 # UNHANDLED INIT

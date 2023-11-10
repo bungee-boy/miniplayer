@@ -7,4 +7,4 @@ old/
 miniplayer_err.log
 miniplayer.log
 settings.json
-user_settings.json
+config.json

@@ -48,7 +48,7 @@ Make sure your version numbers are equal or above the stated version!
 The miniplayer works by connecting to Node-RED through MQTT. Follow these steps to get it working:
 
 1. If you already have a Node-RED installation,\
-you need to set `NODERED_IP` and `NODERED_PORT` in [user_settings.json](user_settings.json).\
+you need to set `NODERED_IP` and `NODERED_PORT` in [user_settings.json](config.json).\
 \
 If you do not have Node-RED, please follow the 
 [official documentation](https://nodered.org/docs/getting-started/).
@@ -58,7 +58,7 @@ If you do not have Node-RED, please follow the
 please skip to step 3.\
 \
 If you have a username and password for MQTT, then you need to set\
-`MQTT_USER` and `MQTT_PASS` in [user_settings.json](user_settings.json).\
+`MQTT_USER` and `MQTT_PASS` in [user_settings.json](config.json).\
 \
 If you do not have an MQTT broker, please follow
 [this tutorial](https://microcontrollerslab.com/install-mosquitto-mqtt-broker-windows-linux/).
@@ -86,7 +86,7 @@ edit the template node under the WEATHER section in Node-RED.)
 
 ## Miniplayer Setup
 The miniplayer has a few settings that need to be set before it will work.\
-To edit them, open [user_settings.json](user_settings.json) in a text editor.
+To edit them, open [user_settings.json](config.json) in a text editor.
 
 1. Make sure that the IP address and port to your Node-RED installation is correct.\
 To do this, change `NODERED_IP` and `NODERED_PORT` to the correct IP and Port.\
