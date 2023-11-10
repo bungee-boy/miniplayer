@@ -469,6 +469,13 @@ class MENU(Window):
         self.cross = Img['menu']['cross']
         self._screensaver_timer = 0
 
+    @staticmethod
+    def set_window(window):
+        global Current_window
+        Current_window.stop()
+        Current_window = window
+        Current_window.start()
+
     def start_retained(self):
         if self._retained_windows:
             self.log('Starting windows')
@@ -662,6 +669,7 @@ class SETTINGS(Window):
 
 class MQTT(Window):
     mac_address = NODERED_USER
+    _mqtt_window = '/miniplayer/window'
 
     def __init__(self):
         super().__init__('MQTT')
@@ -682,10 +690,13 @@ class MQTT(Window):
 
     def _global_response(self, client, data, message):
         self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT  # Update last msg time
-        for topic in self.subscribed:
-            if topic == message.topic:  # Find corresponding topic
-                self.subscribed[topic](client, data, message)  # Run appropriate response function on data
-                break
+        if message.topic == self._mqtt_window and Settings.value['WINDOW_CHANGE']:  # If topic is to change windows
+            pass
+        else:
+            for topic in self.subscribed:
+                if topic == message.topic:  # Find corresponding topic
+                    self.subscribed[topic](client, data, message)  # Run appropriate response function on data
+                    break
 
     def connect(self, ani=False):
         if not self.connected or not self._mqtt.is_connected():
