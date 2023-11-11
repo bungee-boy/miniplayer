@@ -216,7 +216,7 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'cloud_2': pg.transform.smoothscale(load('assets/weather/cloud_2.png', (100, 100)), (300, 300)),
         'cloud': pg.transform.smoothscale(load('assets/weather/cloud.png', (100, 100)), (300, 300))},
     'spotify': {
-        'logo': load('assets/spotify/logo.png', (295, 89)),
+        'logo': pg.transform.smoothscale(load('assets/spotify/logo.png', (295, 89)), (212, 64)),
         'pause': (load('assets/spotify/pause_0.png', (50, 50)),
                   load('assets/spotify/pause_1.png', (50, 50))),
         'play': (load('assets/spotify/play_0.png', (50, 50)),
@@ -994,14 +994,13 @@ class SPOTIFY(Window):
     _mqtt_active = f'/miniplayer/spotify/active/{MQTT.mac_address}'
     _mqtt_action = '/miniplayer/spotify/action'
     _mqtt_response = '/miniplayer/spotify/response'
-    _mqtt_device_response = '/miniplayer/spotify/device'
     _pending_action_length = 12000
 
     def __init__(self):
         super().__init__('Spotify')
         self._playing = False
         self._update_ms = 0
-        self._pending_action = None
+        self._pending_action = {}
         self._pending_value = None
         self._action_time = 0
         self._timeout_time = 0
@@ -1010,7 +1009,6 @@ class SPOTIFY(Window):
         self._playlists = []
         self._active_playlist = None
         self.value = {}
-        self.device_value = {}
         self.show_playlists = False
         Menu.windows.append(self)
         self._load_default()
@@ -1045,10 +1043,10 @@ class SPOTIFY(Window):
             return pg.surface.Surface((140, 140))
 
     def _load_default(self):
-        icon = pg.transform.scale(Img['spotify']['logo'], (212, 64))
         cover = pg.surface.Surface((300, 300))
         cover.set_alpha(150)
-        self._data = {'icon': (icon, icon.get_rect(center=(CENTER[0], Menu.left[1].centery))),
+        self._data = {'icon': (Img['spotify']['logo'],
+                               Img['spotify']['logo'].get_rect(center=(CENTER[0], Menu.left[1].centery))),
                       'bg': None,
                       'album_cover': (cover, cover.get_rect(topleft=(100, 125))),
                       'pause': Img['spotify']['pause'],
@@ -1112,24 +1110,30 @@ class SPOTIFY(Window):
         self._data.update({'plist_rect': temp})
 
         self.value = {  # DEFAULT VALUES
-            'playlist_uri': '',
+            'device': {
+                'name': '',
+                'type': '',
+                'supports_volume': False,
+                'volume_percent': 0},
+            'shuffle_state': False,
+            'context': {
+                'type': '',
+                'uri': ''},
             'progress_ms': 0,
             'progress': '0:00',
-            'album': {
-                'cover_url': '',
-                'name': 'Loading...'},
-            'artists': [{'name': 'Loading...'}],
-            'duration_ms': 0,
-            'duration': '-:--',
-            'explicit': False,
-            'song_name': 'Loading...',
-            'is_playing': False,
-            'shuffle': False}
-        self.device_value = {
-            'name': '',
-            'type': '',
-            'volume_percent': 0
-        }
+            'item': {
+                'album': {
+                    'images': [{'url': ''}],
+                    'name': 'Loading...'},
+                'artists': [{'name': 'Loading...'}],
+                'duration_ms': 0,
+                'duration': '-:--',
+                'explicit': False,
+                'name': 'Loading...',
+            },
+            'currently_playing_type': '',
+            'is_playing': False
+            }
 
     def _get_playlists(self) -> bool:
         self.log('Fetching playlists..')
@@ -1259,16 +1263,20 @@ class SPOTIFY(Window):
         if message.topic == self._mqtt_response:
             try:
                 msg = json.loads(message.payload.decode('utf-8'))
-                if not msg:
+                if msg != {}:
+                    self._playing = True
+                else:
                     self._playing = False
                     return
-                else:
-                    self._playing = True
 
-                if msg['album']['cover_url'] != self.value['album']['cover_url']:  # Fetch album artwork
+                if msg['currently_playing_type'] != 'track':
+                    raise ValueError(f"Spotify is not playing a track! ('{msg['currently_playing_type']}')")
+
+                # Fetch album artwork
+                if msg['item']['album']['images'][0]['url'] != self.value['item']['album']['images'][0]['url']:
                     temp = WIDTH if WIDTH > HEIGHT else HEIGHT  # Fit to screen (keep aspect ratio 1:1)
                     cover = pg.transform.smoothscale(pg.image.load(io.BytesIO(
-                        requests.get(msg['album']['cover_url']).content)), (temp, temp))
+                        requests.get(msg['item']['album']['images'][0]['url']).content)), (temp, temp))
                     cover_crop = pg.surface.Surface((WIDTH, HEIGHT))
                     cover_crop.blit(cover, (CENTER[0] - cover.get_rect().centerx, CENTER[1] - cover.get_rect().centery))
                     cover_crop.set_alpha(80)
@@ -1276,29 +1284,34 @@ class SPOTIFY(Window):
                     cover = pg.transform.smoothscale(cover, (300, 300))
                     self._data['album_cover'] = cover, cover.get_rect(topleft=(100, 125))
 
-                self.value = msg  # Copy response and convert values
-                if self.value['playlist_uri']:
-                    self.value['playlist_uri'] = self.value['playlist_uri'].replace('spotify:playlist:', '')
-                self.value['song_name'] = self._shorten(self.value['song_name'])
-                self.value['duration_ms'] = int(self.value['duration_ms'])
-                self.value.update({'duration': convert_s(self.value['duration_ms'] // 1000)})
-                self.value['progress_ms'] = int(self.value['progress_ms'])
-                self.value.update({'progress': convert_s(self.value['progress_ms'] // 1000)})
-                self.value['album']['name'] = self._shorten(self.value['album']['name'])
+                try:  # Playlists
+                    if msg['context']['type'] == 'playlist':
+                        msg['context']['uri'] = msg['context']['uri'].replace('spotify:playlist:', '')
+                        # If current song is in playlist
+                        if msg['context']['uri'] and ':collection' not in msg['context']['uri']:
+                            if msg['context']['uri'] not in Settings.value['Playlist Order']:  # If unknown
+                                self._update_playlists(msg['context']['uri'])  # Fetch new
+                            try:
+                                self._active_playlist = self._playlists[Settings.value[
+                                    'Playlist Order'].index(msg['context']['uri'])]  # Set current
+                            except:
+                                self._active_playlist = None
+                        else:
+                            self._active_playlist = None
+                except KeyError:
+                    self.value.update({'context': {'type': '', 'uri': ''}})
 
-                # If current song is in playlist
-                if self.value['playlist_uri'] and self.value['playlist_uri'] != 'spotify:user:ag.bungee:collection':
-                    if self.value['playlist_uri'] not in Settings.value['Playlist Order']:  # If unknown playlist
-                        self._update_playlists(self.value['playlist_uri'])  # Fetch new playlist
-                    try:
-                        self._active_playlist = self._playlists[Settings.value[
-                            'Playlist Order'].index(self.value['playlist_uri'])]  # Set current playlist
-                    except:
-                        self._active_playlist = None
-                else:
-                    self._active_playlist = None
+                msg['item']['name'] = self._shorten(msg['item']['name'])
+                msg['item']['duration_ms'] = int(msg['item']['duration_ms'])
+                msg['item'].update({'duration': convert_s(msg['item']['duration_ms'] // 1000)})
+                msg['progress_ms'] = int(msg['progress_ms'])
+                msg.update({'progress': convert_s(msg['progress_ms'] // 1000)})
+                msg['item']['album']['name'] = self._shorten(msg['item']['album']['name'])
+                msg['device']['name'] = msg['device']['name'].lower().title().replace("'S", "'s")
 
-                self._update_ms = pg.time.get_ticks() - 30  # Set time for progress bar
+                self.value = msg  # Set values as msg (all data is now ready for display)
+
+                self._update_ms = pg.time.get_ticks()  # Set time for progress bar
 
                 self.timestamp = strftime('%H:%M')
                 if self._timestamp_color != Colour['green']:
@@ -1317,35 +1330,13 @@ class SPOTIFY(Window):
                     self.timestamp = 'ERR: Unknown'
                 self._load_default()
 
-        elif message.topic == self._mqtt_device_response:
-            try:
-                self.device_value = json.loads(message.payload.decode('utf-8'))
-                self.device_value['name'] = self.device_value['name'].lower().title().replace("'S", "'s")
-
-                self.timestamp = strftime('%H:%M')
-                if self._timestamp_color != Colour['green']:
-                    self._timestamp_color = Colour['green']
-
-            except Exception as err:
-                handle(err)
-                if self._timestamp_color != Colour['red']:
-                    self._timestamp_color = Colour['red']
-                    self.timestamp = f'ERR: {err}'
-                self._load_default()
-            except:
-                self.err('MQTT receive error 2 -> unknown')
-                if self._timestamp_color != Colour['red']:
-                    self._timestamp_color = Colour['red']
-                    self.timestamp = 'ERR: Unknown'
-                self._load_default()
-
     def start(self):
         if self.active:
             self.err('Start called without stopping', cat='WRN')
             return
 
         self.log('Starting..')
-        Mqtt.subscribe((self._mqtt_response, self._mqtt_device_response), self.receive)
+        Mqtt.subscribe(self._mqtt_response, self.receive)
         self._load_default()
         Mqtt.send(self._mqtt_active, True)  # Tell Node-RED spotify is active
         self.active = True
@@ -1358,7 +1349,7 @@ class SPOTIFY(Window):
 
         self.log('Stopping..')
         Mqtt.send(self._mqtt_active, False)  # Tell Node-RED spotify is not active
-        Mqtt.unsubscribe((self._mqtt_response, self._mqtt_device_response))
+        Mqtt.unsubscribe(self._mqtt_response)
         Menu.allow_screensaver = True
         self.log('Allowed screensaver')
         self.active = False
@@ -1380,13 +1371,13 @@ class SPOTIFY(Window):
         if not self._playing:
             surf.blit(*render_text('Not Playing', 80, bold=True, center=CENTER))
         else:
-            txt = render_text(self.value['song_name'], 35, bold=True,
+            txt = render_text(self.value['item']['name'], 35, bold=True,
                               bottomleft=(self._data['album_cover'][1].right + 25,
                                           self._data['album_cover'][1].top + self._data['album_cover'][1].height / 4))
             surf.blit(*txt)  # SONG DETAILS
-            surf.blit(*render_text(self.value['artists'][0]['name'], 35,
+            surf.blit(*render_text(self.value['item']['artists'][0]['name'], 35,
                                    midleft=(txt[1].left, self._data['album_cover'][1].centery)))
-            surf.blit(*render_text(self.value['album']['name'], 35,
+            surf.blit(*render_text(self.value['item']['album']['name'], 35,
                                    topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
@@ -1396,36 +1387,36 @@ class SPOTIFY(Window):
                       [1 if self._pending_action != ('pause' if self.value['is_playing'] else 'play') else 0],
                       self._data['center'])
             surf.blit(self._data['skip_r'][1 if self._pending_action != 'skip' else 0], self._data['right'])
-            surf.blit(self._data['shuffle_active' if self.value['shuffle'] else 'shuffle']
+            surf.blit(self._data['shuffle_active' if self.value['shuffle_state'] else 'shuffle']
                       [1 if self._pending_action != 'shuffle' else 0], self._data['far_right'])
 
-            bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['duration_ms'],  # PROGRESS BAR
+            bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['item']['duration_ms'],  # PROGRESS BAR
                              midtop=(CENTER[0], self._data['center'].bottom + 40))
             surf.blit(*bar)
             surf.blit(*render_text(self.value['progress'], 30, Colour['white'], bold=True,  # PROGRESS
                                    midright=(bar[1].left - 30, bar[1].centery + 1)))
-            surf.blit(*render_text(self.value['duration'], 30, Colour['white'], bold=True,  # DURATION
+            surf.blit(*render_text(self.value['item']['duration'], 30, Colour['white'], bold=True,  # DURATION
                                    midleft=(bar[1].right + 30, bar[1].centery + 1)))
 
-            bar = render_bar((300, 14), self.device_value['volume_percent'], 0, 100,  # VOLUME BAR
+            bar = render_bar((300, 14), self.value['device']['volume_percent'], 0, 100,  # VOLUME BAR
                              midtop=(CENTER[0], bar[1].bottom + 45))
             surf.blit(*bar)
             self._data['volume']['left'].midright = bar[1].left - 20, bar[1].centery  # VOLUME ICON
             self._data['volume']['right_1'].midleft = bar[1].right + 20, bar[1].centery
             self._data['volume']['right_2'].midleft = self._data['volume']['right_1'].right + 20, bar[1].centery
-            if self.device_value['volume_percent'] == 0:
+            if self.value['device']['volume_percent'] == 0:
                 surf.blit(self._data['volume']['m'], self._data['volume']['left'])
-            elif self.device_value['volume_percent'] >= 65:
+            elif self.value['device']['volume_percent'] >= 65:
                 surf.blit(self._data['volume']['100'], self._data['volume']['left'])
-            elif self.device_value['volume_percent'] >= 35:
+            elif self.value['device']['volume_percent'] >= 35:
                 surf.blit(self._data['volume']['50'], self._data['volume']['left'])
             else:
                 surf.blit(self._data['volume']['0'], self._data['volume']['left'])
 
-            if self.device_value['volume_percent'] >= 0:  # VOLUME CONTROLS
+            if self.value['device']['volume_percent'] >= 0:  # VOLUME CONTROLS
                 surf.blit(self._data['volume']['-'][1 if self._pending_action != 'decrease_volume' else 0],
                           self._data['volume']['right_1'])
-            if self.device_value['volume_percent'] <= 100:
+            if self.value['device']['volume_percent'] <= 100:
                 surf.blit(self._data['volume']['+'][1 if self._pending_action != 'increase_volume' else 0],
                           self._data['volume']['right_2'])
 
@@ -1465,7 +1456,8 @@ class SPOTIFY(Window):
                           self._data['plist']['scroll_d'][2])
 
         if Settings.value['Device Info']:
-            surf.blit(*render_text(self.device_value['name'], 30, Colour['grey'], bottomright=(WIDTH - 5, HEIGHT - 3)))
+            surf.blit(*render_text(self.value['device']['name'], 30, Colour['grey'],
+                                   bottomright=(WIDTH - 5, HEIGHT - 3)))
         if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:  # Action status
             set_info('Action timed out!', Colour['red'])
         if not self.show_playlists:  # Timestamp
@@ -1485,69 +1477,60 @@ class SPOTIFY(Window):
         if self._playing:
             # UPDATE PROGRESS BAR
             if pg.time.get_ticks() - self._update_ms >= 1000 and self.value['is_playing'] and \
-                    self.value['progress_ms'] + 1000 < self.value['duration_ms']:
+                    self.value['progress_ms'] + 1000 < self.value['item']['duration_ms']:
                 self._update_ms = pg.time.get_ticks()
                 self.value['progress_ms'] += 1000
                 self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
-            elif self.value['progress_ms'] + 1000 >= self.value['duration_ms']:
-                self.value['progress_ms'] = self.value['duration_ms']
+            elif self.value['progress_ms'] + 1000 >= self.value['item']['duration_ms']:
+                self.value['progress_ms'] = self.value['item']['duration_ms']
                 self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
 
             # CONTROLS
-            action = None
+            action = {}
             if not Settings.active and not self.show_playlists and not Button_cooldown and (
                     not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
                     TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
                 if self._data['center'].collidepoint(Mouse_pos):
-                    action = 'pause' if self.value['is_playing'] else 'play'
+                    action.update({'pause': True} if self.value['is_playing'] else {'play': True})
                     self._prev_value = self.value['is_playing']
                 elif self._data['left'].collidepoint(Mouse_pos):
-                    action = 'rewind'
-                    self._prev_value = self.value['song_name']
+                    action.update({'rewind': True})
+                    self._prev_value = self.value['item']['name']
                 elif self._data['right'].collidepoint(Mouse_pos):
-                    action = 'skip'
-                    self._prev_value = self.value['song_name']
+                    action.update({'skip': True})
+                    self._prev_value = self.value['item']['name']
                 elif self._data['far_right'].collidepoint(Mouse_pos):
-                    action = 'shuffle'
-                    self._prev_value = self.value['shuffle']
+                    action.update({'shuffle': True})
+                    self._prev_value = self.value['shuffle_state']
                 elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
-                      self.device_value['volume_percent'] > 0):
-                    action = 'decrease_volume'
-                    self._prev_value = self.device_value['volume_percent']
+                      self.value['device']['volume_percent'] > 0):
+                    action.update({'volume': (self.value['device']['volume_percent'] - 5 if
+                                              self.value['device']['volume_percent'] - 5 >= 0 else 0)})
+                    self._prev_value = self.value['device']['volume_percent']
                 elif (self._data['volume']['right_2'].collidepoint(Mouse_pos) and
-                      self.device_value['volume_percent'] < 100):
-                    action = 'increase_volume'
-                    self._prev_value = self.device_value['volume_percent']
+                      self.value['device']['volume_percent'] < 100):
+                    action.update({'volume': (self.value['device']['volume_percent'] + 5 if
+                                              self.value['device']['volume_percent'] + 5 >= 100 else 100)})
+                    self._prev_value = self.value['device']['volume_percent']
 
-                if action and not self._pending_action and not self._action_time:
+                if action and self._pending_action != {} and not self._action_time:
                     Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                     self._action_time = pg.time.get_ticks() + self._pending_action_length
                     self._pending_action = action
-                    if action == 'decrease_volume':
-                        Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] - 5
-                                  if self.device_value['volume_percent'] - 5 >= 0 else 0)
-                    elif action == 'increase_volume':
-                        Mqtt.send(self._mqtt_action, self.device_value['volume_percent'] + 5
-                                  if self.device_value['volume_percent'] + 5 <= 100 else 100)
-                    else:
-                        Mqtt.send(self._mqtt_action, action)
-                    self.log(f'{action.title()} requested')
+                    Mqtt.send(self._mqtt_action, action)
+                    print(action.keys())
+                    #self.log(f'{str(action[str(action.keys()[0])]).title()} requested')
 
-                if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLIST (open)
+                if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLISTS (open)
                     Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                     Menu.allow_controls = False
                     self.show_playlists = True
                     self.log('Opened playlists')
-
-            if self._pending_action == 'pause' and self.value['is_playing'] != self._prev_value or \
-                    self._pending_action == 'play' and self.value['is_playing'] != self._prev_value or \
-                    self._pending_action == 'skip' and self.value['song_name'] != self._prev_value or \
-                    self._pending_action == 'rewind' and self.value['song_name'] != self._prev_value or \
-                    self._pending_action == 'increase_volume' and \
-                    self.device_value['volume_percent'] > self._prev_value or \
-                    self._pending_action == 'decrease_volume' and \
-                    self.device_value['volume_percent'] < self._prev_value or \
-                    self._pending_action == 'shuffle' and self.value['shuffle'] != self._prev_value:
+            temp = self._pending_action.keys()
+            if (('pause' in temp or 'play' in temp) and self.value['is_playing'] != self._prev_value or
+                    ('skip' in temp or 'rewind' in temp) and self.value['item']['name'] != self._prev_value or
+                    'volume' in temp and self.value['device']['volume_percent'] != self._prev_value or
+                    'shuffle' in temp and self.value['shuffle_state'] != self._prev_value):
                 self.log(f'{self._pending_action.title()} confirmed')
                 set_info(f"{self._pending_action.title().replace('_', ' ')} confirmed")
                 self._action_time = 0
@@ -2080,7 +2063,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Local_weather  # Default window
+    Current_window = Spotify # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
