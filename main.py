@@ -188,11 +188,14 @@ except Exception or BaseException as error:
 
 Img = {  # ASSET DIRECTORIES / PATHS
     'bg': load('assets/bg.jpg', (1280, 720), alpha=False),
-    'icon': load('assets/icon.ico', (32, 32), alpha=False),
+    'icon': load('assets/icon.ico', (32, 32)),
     'menu': {
         'menu': load('assets/menu.png', (50, 50)),
         'settings': load('assets/settings.png', (50, 50)),
-        'cross': load('assets/cross.png', (50, 50))},
+        'cross': load('assets/cross.png', (50, 50)),
+        'on': load('assets/on.png', (50, 50)),
+        'off': load('assets/off.png', (50, 50)),
+        'none': load('assets/none.png', (50, 50))},
     'weather': {
         'storm': pg.transform.smoothscale(load('assets/weather/storm.png', (100, 100)), (300, 300)),
         'storm_2': pg.transform.smoothscale(load('assets/weather/storm_2.png', (100, 100)), (300, 300)),
@@ -217,12 +220,20 @@ Img = {  # ASSET DIRECTORIES / PATHS
         'cloud': pg.transform.smoothscale(load('assets/weather/cloud.png', (100, 100)), (300, 300))},
     'spotify': {
         'logo': pg.transform.smoothscale(load('assets/spotify/logo.png', (295, 89)), (212, 64)),
+        'explicit': load('assets/spotify/explicit.png', (35, 35)),
         'pause': (load('assets/spotify/pause_0.png', (50, 50)),
                   load('assets/spotify/pause_1.png', (50, 50))),
         'play': (load('assets/spotify/play_0.png', (50, 50)),
                  load('assets/spotify/play_1.png', (50, 50))),
         'shuffle': (load('assets/spotify/shuffle_1.png', (50, 50)),
                     load('assets/spotify/shuffle_1.png', (50, 50))),
+        'shuffle_active': (load('assets/spotify/shuffle_active_1.png', (50, 50)),
+                           load('assets/spotify/shuffle_active_1.png', (50, 50))),
+        'repeat': (load('assets/spotify/repeat_0.png', (50, 50)),
+                   load('assets/spotify/repeat_1.png', (50, 50)),
+                   load('assets/spotify/repeat_2.png', (50, 50))),
+        'save': (load('assets/spotify/save_0.png', (50, 50)),
+                 load('assets/spotify/save_1.png', (50, 50))),
         'playlist': load('assets/spotify/playlist_1.png', (50, 50)),
         'skip': (load('assets/spotify/skip_0.png', (50, 50)),
                  load('assets/spotify/skip_1.png', (50, 50))),
@@ -557,6 +568,17 @@ class SETTINGS(Window):
         self.shadow = pg.surface.Surface((WIDTH, HEIGHT))
         self.shadow.set_alpha(160)
         self.value = {}
+        surf = Img['menu']['on']
+        self._data = {}
+        self._data.update({'screensaver': surf.get_rect(midleft=(Menu.left[1].centerx + 50, 150))})
+        self._data.update({'device_info': surf.get_rect(midleft=(self._data['screensaver'].left,
+                                                                 self._data['screensaver'].centery + 100))})
+        self._data.update({'playlists': surf.get_rect(midleft=(self._data['device_info'].left,
+                                                               self._data['device_info'].centery + 100))})
+        self._data.update({'reconnect': surf.get_rect(midleft=(self._data['playlists'].left,
+                                                               self._data['playlists'].centery + 100))})
+        self._data.update({'close': surf.get_rect(midleft=(self._data['reconnect'].left,
+                                                           self._data['reconnect'].centery + 100))})
         self.load()
 
     def load(self):
@@ -616,23 +638,34 @@ class SETTINGS(Window):
         surf.blit(*render_text('Settings', 50, bold=True, center=(CENTER[0], Menu.right[1].centery)))
         surf.blit(Menu.settings[0], Menu.right[1])
 
-        screensaver = render_button(self.value['Screensaver'], midleft=(Menu.left[1].centerx + 50, 150))
-        device_info = render_button(self.value['Device Info'], midleft=(screensaver.left, screensaver.centery + 100))
-        playlists = render_button(Colour['grey'], midleft=(device_info.left, device_info.centery + 100))
-        reconnect = render_button(Colour['amber'], midleft=(playlists.left, playlists.centery + 100))
-        close = render_button(Colour['red'], midleft=(reconnect.left, reconnect.centery + 100))
+        # screensaver = render_button(self.value['Screensaver'], midleft=(Menu.left[1].centerx + 50, 150))
 
-        temp = 30
+        # device_info = render_button(self.value['Device Info'], midleft=(screensaver.left, screensaver.centery + 100))
+        # playlists = render_button(Colour['grey'], midleft=(device_info.left, device_info.centery + 100))
+        # reconnect = render_button(Colour['amber'], midleft=(playlists.left, playlists.centery + 100))
+        # close = render_button(Colour['red'], midleft=(reconnect.left, reconnect.centery + 100))
+
+        temp = 30  # Pad X
         # SCREENSAVER
-        surf.blit(*render_text('Screensaver', 35, bold=True, midleft=(screensaver.right + temp, screensaver.centery)))
+        surf.blit(Img['menu']['on' if self.value['Screensaver'] else 'off'], self._data['screensaver'])
+        surf.blit(*render_text('Screensaver', 35, bold=True,
+                               midleft=(self._data['screensaver'].right + temp, self._data['screensaver'].centery)))
         # DEVICE INFO
-        surf.blit(*render_text('Device Info', 35, bold=True, midleft=(device_info.right + temp, device_info.centery)))
+        surf.blit(Img['menu']['on' if self.value['Device Info'] else 'off'], self._data['device_info'])
+        surf.blit(*render_text('Device Info', 35, bold=True,
+                               midleft=(self._data['device_info'].right + temp, self._data['device_info'].centery)))
         # RELOAD PLAYLISTS
-        surf.blit(*render_text('Reload playlists', 35, bold=True, midleft=(playlists.right + temp, playlists.centery)))
+        surf.blit(Img['menu']['none'], self._data['playlists'])
+        surf.blit(*render_text('Reload playlists', 35, bold=True,
+                               midleft=(self._data['playlists'].right + temp, self._data['playlists'].centery)))
         # RECONNECT
-        surf.blit(*render_text('Reconnect', 35, bold=True, midleft=(reconnect.right + temp, reconnect.centery)))
+        surf.blit(Img['menu']['none'], self._data['reconnect'])
+        surf.blit(*render_text('Reconnect', 35, bold=True,
+                               midleft=(self._data['reconnect'].right + temp, self._data['reconnect'].centery)))
         # CLOSE
-        surf.blit(*render_text('Close', 35, bold=True, midleft=(close.right + temp, close.centery)))
+        surf.blit(Img['menu']['none'], self._data['close'])
+        surf.blit(*render_text('Close', 35, bold=True,
+                               midleft=(self._data['close'].right + temp, self._data['close'].centery)))
         # MQTT INFO
         surf.blit(*render_text(f'Connection: {MQTT_IP}   Username: {Mqtt.mac_address}', 30, bold=True,
                                midbottom=(CENTER[0], HEIGHT - 10)))
@@ -645,24 +678,24 @@ class SETTINGS(Window):
             self.active = False
             Menu.allow_screensaver = True
             self.save()
-        elif screensaver.collidepoint(Mouse_pos):  # Screensaver
+        elif self._data['screensaver'].collidepoint(Mouse_pos):  # Screensaver
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.value['Screensaver'] = False if self.value['Screensaver'] else True
-        elif device_info.collidepoint(Mouse_pos):  # Device info
+        elif self._data['device_info'].collidepoint(Mouse_pos):  # Device info
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.value['Device Info'] = False if self.value['Device Info'] else True
-        elif playlists.collidepoint(Mouse_pos):  # Reload
+        elif self._data['playlists'].collidepoint(Mouse_pos):  # Reload
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.active = False  # Close settings automatically
             if Spotify.reload_playlists():
                 set_info('Reloaded playlists')
             else:
                 set_info('Playlist reload failed!', Colour['red'])
-        elif reconnect.collidepoint(Mouse_pos):  # Reconnect
+        elif self._data['reconnect'].collidepoint(Mouse_pos):  # Reconnect
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.active = False  # Close settings automatically
             Mqtt.reconnect()
-        elif close.collidepoint(Mouse_pos):  # Close
+        elif self._data['close'].collidepoint(Mouse_pos):  # Close
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             raise KeyboardInterrupt('Close button pressed')
 
@@ -1077,11 +1110,14 @@ class SPOTIFY(Window):
         self._data = {'icon': (Img['spotify']['logo'],
                                Img['spotify']['logo'].get_rect(center=(CENTER[0], Menu.left[1].centery))),
                       'bg': None,
+                      'explicit': Img['spotify']['explicit'],
                       'album_cover': (cover, cover.get_rect(topleft=(100, 125))),
                       'pause': Img['spotify']['pause'],
                       'play': Img['spotify']['play'],
                       'shuffle': Img['spotify']['shuffle'],
-                      'shuffle_active': (Img['spotify']['shuffle'][0].copy(), Img['spotify']['shuffle'][1].copy()),
+                      'shuffle_active': Img['spotify']['shuffle_active'],
+                      'repeat': Img['spotify']['repeat'],
+                      'save': Img['spotify']['save'],
                       'playlist': Img['spotify']['playlist'],
                       'skip_l': (pg.transform.flip(Img['spotify']['skip'][0], True, False),
                                  pg.transform.flip(Img['spotify']['skip'][1], True, False)),
@@ -1096,16 +1132,16 @@ class SPOTIFY(Window):
                           '100': Img['spotify']['vol 100'],
                           '-': Img['spotify']['vol -'],
                           '+': Img['spotify']['vol +']}}
-        for index in range(0, len(self._data['shuffle_active'])):  # Duplicate shuffle as green from white
-            pg.transform.threshold(self._data['shuffle_active'][index], self._data['shuffle_active'][index],
-                                   search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
+
         surf = pg.surface.Surface((50, 50))
-        self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 160))})
+        self._data.update({'center': surf.get_rect(center=(CENTER[0], CENTER[1] + 160))})  # Pause / Play
         top = self._data['center'].top
-        self._data.update({'left': surf.get_rect(topright=(self._data['center'].left - 50, top))})
-        self._data.update({'far_left': surf.get_rect(topright=(self._data['left'].left - 50, top))})
-        self._data.update({'right': surf.get_rect(topleft=(self._data['center'].right + 50, top))})
-        self._data.update({'far_right': surf.get_rect(topleft=(self._data['right'].right + 50, top))})
+        self._data.update({'left': surf.get_rect(topright=(self._data['center'].left - 50, top))})  # Rewind
+        self._data.update({'far_left': surf.get_rect(topright=(self._data['left'].left - 50, top))})  # Shuffle
+        self._data.update({'far_left_2': surf.get_rect(topright=(self._data['far_left'].left - 50, top))})  # Playlist
+        self._data.update({'right': surf.get_rect(topleft=(self._data['center'].right + 50, top))})  # Skip
+        self._data.update({'far_right': surf.get_rect(topleft=(self._data['right'].right + 50, top))})  # Repeat
+        self._data.update({'far_right_2': surf.get_rect(topleft=(self._data['far_right'].right + 50, top))})  # Save
 
         self._data.update({'plist': {  # PLAYLISTS
             'pause': self._data['pause'][1].copy(),
@@ -1178,8 +1214,8 @@ class SPOTIFY(Window):
             try:
                 playlists = json.load(io.BytesIO(response.content))  # Decode response
                 temp = {}  # Playlist by id
-                for playlist in playlists:  # For each playlist
-                    temp.update({playlist['id'].replace('spotify:playlist:', ''): playlist})  # Set id as key to dict
+                for playlist in playlists['items']:  # For each playlist
+                    temp.update({playlist['id'].replace('spotify:playlist:', ''): playlist})  # Set id as key in dict
                 playlists = temp  # Reuse playlists as playlist by id
                 self._playlists = []  # Clear previous playlists
                 for key in Settings.value['Playlist Order']:  # For each ordered playlist add known playlists in order
@@ -1410,15 +1446,22 @@ class SPOTIFY(Window):
                                    topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
-            pending_keys = self._pending_action.keys()
-            surf.blit(self._data['playlist'], self._data['far_left'])  # BUTTONS
-            surf.blit(self._data['skip_l'][0 if 'rewind' in pending_keys else 1], self._data['left'])
-            surf.blit(self._data['pause' if self.value['is_playing'] else 'play']
+            pending_keys = self._pending_action.keys()  # BUTTONS
+            if self._playlists:
+                surf.blit(self._data['playlist'], self._data['far_left_2'])  # Playlist
+                if self._active_playlist and 'name' in self._active_playlist.keys():  # Playlist name
+                    surf.blit(*render_text(self._active_playlist['name'], 25, colour=Colour['grey'],
+                                           midright=(self._data['far_left_2'].left - 20,
+                                                     self._data['far_left_2'].centery)))
+            surf.blit(self._data['skip_l'][0 if 'rewind' in pending_keys else 1], self._data['left'])  # Rewind
+            surf.blit(self._data['pause' if self.value['is_playing'] else 'play']  # Pause / Play
                       [0 if ('pause' if self.value['is_playing'] else 'play') in pending_keys else 1],
                       self._data['center'])
-            surf.blit(self._data['skip_r'][0 if 'skip' in pending_keys else 1], self._data['right'])
-            surf.blit(self._data['shuffle_active' if self.value['shuffle_state'] else 'shuffle']
-                      [0 if 'shuffle' in pending_keys else 1], self._data['far_right'])
+            surf.blit(self._data['skip_r'][0 if 'skip' in pending_keys else 1], self._data['right'])  # Skip
+            surf.blit(self._data['shuffle_active' if self.value['shuffle_state'] else 'shuffle']  # Shuffle
+                      [0 if 'shuffle' in pending_keys else 1], self._data['far_left'])
+            surf.blit(self._data['repeat'][0], self._data['far_right'])  # Repeat
+            surf.blit(self._data['save'][0], self._data['far_right_2'])  # Save
 
             bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['item']['duration_ms'],  # PROGRESS BAR
                              midtop=(CENTER[0], self._data['center'].bottom + 40))
@@ -1562,26 +1605,26 @@ class SPOTIFY(Window):
                 if not Settings.active and not self.show_playlists and not Button_cooldown and (
                         not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
                         TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
-                    if self._data['center'].collidepoint(Mouse_pos):
+                    if self._data['center'].collidepoint(Mouse_pos):  # Pause / Play
                         action.update({'pause': 0} if self.value['is_playing'] else {'play': 0})
                         self._prev_value = self.value['is_playing']
-                    elif self._data['left'].collidepoint(Mouse_pos):
+                    elif self._data['left'].collidepoint(Mouse_pos):  # Rewind
                         action.update({'rewind': 0})
                         self._prev_value = self.value['item']['name']
-                    elif self._data['right'].collidepoint(Mouse_pos):
-                        action.update({'skip': 0})
-                        self._prev_value = self.value['item']['name']
-                    elif self._data['far_right'].collidepoint(Mouse_pos):
+                    elif self._data['far_left'].collidepoint(Mouse_pos):  # Shuffle
                         action.update({'shuffle': 0, 'params': [str(not self.value['shuffle_state']).lower()]})
                         self._prev_value = self.value['shuffle_state']
+                    elif self._data['right'].collidepoint(Mouse_pos):  # Skip
+                        action.update({'skip': 0})
+                        self._prev_value = self.value['item']['name']
                     elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
-                          self.value['device']['volume_percent'] > 0):
+                          self.value['device']['volume_percent'] > 0):  # Vol -
                         action.update({'volume_-': 0, 'params': [
                             (self.value['device']['volume_percent'] - 5 if
                              self.value['device']['volume_percent'] - 5 >= 0 else 0)]})
                         self._prev_value = self.value['device']['volume_percent']
                     elif (self._data['volume']['right_2'].collidepoint(Mouse_pos) and
-                          self.value['device']['volume_percent'] < 100):
+                          self.value['device']['volume_percent'] < 100):  # Vol +
                         action.update({'volume_+': 0, 'params': [
                             (self.value['device']['volume_percent'] + 5 if
                              self.value['device']['volume_percent'] + 5 <= 100 else 100)]})
@@ -1594,7 +1637,7 @@ class SPOTIFY(Window):
                         self._pending_action = action
                         Mqtt.send(self._mqtt_action, action)
 
-                    if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLISTS (open)
+                    if self._data['far_left_2'].collidepoint(Mouse_pos):  # PLAYLISTS (open)
                         Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                         Menu.allow_controls = False
                         self.show_playlists = True
@@ -1923,7 +1966,7 @@ def draw_bg(txt=False, surf=Display):
         surf.blit(*render_text('v2.0', 32, midtop=(txt[1].centerx, txt[1].bottom + 20)))
 
 
-def set_info(txt: str, colour=Colour['green'], timeout=2000):
+def set_info(txt: str, colour=(24, 216, 97), timeout=2000):
     global Info  # txt, colour, ms
     if not Info[0] or Info[2] < pg.time.get_ticks():  # If not showing or timeout
         Info = txt, colour, pg.time.get_ticks() + timeout
@@ -2070,10 +2113,10 @@ if __name__ == '__main__':
         Loading_ani = LoadingAni()
         Loading_ani.start(msg='Connecting...', msg_colour=Colour['amber'])
         Mqtt = MQTT()
-        Loading_ani.msg, Loading_ani.msg_colour = 'Loading Settings', Colour['l blue']  # Sets colour and msg of ani
-        Settings = SETTINGS()
-        Loading_ani.msg = 'Loading Menu'  # Update animation msg to see which window is loading
+        Loading_ani.msg, Loading_ani.msg_colour = 'Loading Menu', Colour['l blue']  # Sets colour and msg of ani
         Menu = MENU()
+        Loading_ani.msg = 'Loading Settings'  # Update animation msg to see which window is loading
+        Settings = SETTINGS()
         Loading_ani.msg = 'Loading OctoPrint'
         Octo_print = OCTOPRINT()
         Loading_ani.msg = 'Loading LocalWeather'
