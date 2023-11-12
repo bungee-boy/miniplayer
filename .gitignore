@@ -4,6 +4,7 @@ old/
 playlists/
 tests/.pytest_cache
 old/
+tests/
 miniplayer_err.log
 miniplayer.log
 settings.json

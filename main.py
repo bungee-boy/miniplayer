@@ -821,10 +821,10 @@ class MQTT(Window):
         for topic in self.retained:
             self.subscribe(topic, self.retained[topic])
 
-    def send(self, topic: str, payload):
+    def send(self, topic: str, payload: dict or str):
         msg = str(payload).replace("'", "\"")
-        self._mqtt.publish(topic, msg)
-        self.log(f"Sent '{msg}' to '{topic}'")
+        self._mqtt.publish(topic, payload=msg)
+        self.log(f"Sent {msg} to {topic}")
 
     def update(self):
         if self._last_msg_time < pg.time.get_ticks():  # If no msg since auto_reconnect ms
@@ -1028,6 +1028,35 @@ class SPOTIFY(Window):
                 new_txt += txt[char]
 
         return new_txt.strip()
+
+    def _config_params(self, msg: dict):
+        """
+        Some api calls require different msg.params:
+        msg.params[{device_id}]
+        msg.params[{other_value, device_id}]
+        msg.params[other_value, {device_id}]
+
+        _config_params(msg) will add device_id for you
+        """
+        print(msg)
+        if 'params' in msg.keys():  # If params are set already
+            for index in range(0, len(msg['params'])):  # Loop through each parameter value
+                if msg['params'][index] is dict:  # If dict found
+                    if 'device_id' in msg['params'][index].keys():  # If device_id already set
+                        msg['params'][index]['device_id'] = self.value['device']['id']  # Set to current device_id
+                        print(msg, 1)
+                    else:  # If device_id is not set
+                        msg['params'][index].update({'device_id': self.value['device']['id']})  # Add device_id
+                        print(msg, 2)
+                    break  # Jump to return as set
+            else:  # If end of params
+                msg['params'].append({'device_id': self.value['device']['id']})  # Add device_id (end for loop)
+                print(msg, 3)
+
+        else:  # If no params are set
+            msg.update({'params': [{'device_id': self.value['device']['id']}]})  # Set to current device_id
+            print(msg, 4)
+        return msg  # Return configured message
 
     def _fetch_image(self, url: str):
         response = requests.get(url)  # Request playlists
@@ -1381,14 +1410,15 @@ class SPOTIFY(Window):
                                    topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
+            pending_keys = self._pending_action.keys()
             surf.blit(self._data['playlist'], self._data['far_left'])  # BUTTONS
-            surf.blit(self._data['skip_l'][1 if self._pending_action != 'rewind' else 0], self._data['left'])
+            surf.blit(self._data['skip_l'][0 if 'rewind' in pending_keys else 1], self._data['left'])
             surf.blit(self._data['pause' if self.value['is_playing'] else 'play']
-                      [1 if self._pending_action != ('pause' if self.value['is_playing'] else 'play') else 0],
+                      [0 if ('pause' if self.value['is_playing'] else 'play') in pending_keys else 1],
                       self._data['center'])
-            surf.blit(self._data['skip_r'][1 if self._pending_action != 'skip' else 0], self._data['right'])
+            surf.blit(self._data['skip_r'][0 if 'skip' in pending_keys else 1], self._data['right'])
             surf.blit(self._data['shuffle_active' if self.value['shuffle_state'] else 'shuffle']
-                      [1 if self._pending_action != 'shuffle' else 0], self._data['far_right'])
+                      [0 if 'shuffle' in pending_keys else 1], self._data['far_right'])
 
             bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['item']['duration_ms'],  # PROGRESS BAR
                              midtop=(CENTER[0], self._data['center'].bottom + 40))
@@ -1414,10 +1444,10 @@ class SPOTIFY(Window):
                 surf.blit(self._data['volume']['0'], self._data['volume']['left'])
 
             if self.value['device']['volume_percent'] >= 0:  # VOLUME CONTROLS
-                surf.blit(self._data['volume']['-'][1 if self._pending_action != 'decrease_volume' else 0],
+                surf.blit(self._data['volume']['-'][0 if 'volume_-' in pending_keys else 1],
                           self._data['volume']['right_1'])
             if self.value['device']['volume_percent'] <= 100:
-                surf.blit(self._data['volume']['+'][1 if self._pending_action != 'increase_volume' else 0],
+                surf.blit(self._data['volume']['+'][0 if 'volume_+' in pending_keys else 1],
                           self._data['volume']['right_2'])
 
         if self.show_playlists:
@@ -1485,66 +1515,7 @@ class SPOTIFY(Window):
                 self.value['progress_ms'] = self.value['item']['duration_ms']
                 self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
 
-            # CONTROLS
-            action = {}
-            if not Settings.active and not self.show_playlists and not Button_cooldown and (
-                    not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
-                    TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
-                if self._data['center'].collidepoint(Mouse_pos):
-                    action.update({'pause': True} if self.value['is_playing'] else {'play': True})
-                    self._prev_value = self.value['is_playing']
-                elif self._data['left'].collidepoint(Mouse_pos):
-                    action.update({'rewind': True})
-                    self._prev_value = self.value['item']['name']
-                elif self._data['right'].collidepoint(Mouse_pos):
-                    action.update({'skip': True})
-                    self._prev_value = self.value['item']['name']
-                elif self._data['far_right'].collidepoint(Mouse_pos):
-                    action.update({'shuffle': True})
-                    self._prev_value = self.value['shuffle_state']
-                elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
-                      self.value['device']['volume_percent'] > 0):
-                    action.update({'volume': (self.value['device']['volume_percent'] - 5 if
-                                              self.value['device']['volume_percent'] - 5 >= 0 else 0)})
-                    self._prev_value = self.value['device']['volume_percent']
-                elif (self._data['volume']['right_2'].collidepoint(Mouse_pos) and
-                      self.value['device']['volume_percent'] < 100):
-                    action.update({'volume': (self.value['device']['volume_percent'] + 5 if
-                                              self.value['device']['volume_percent'] + 5 >= 100 else 100)})
-                    self._prev_value = self.value['device']['volume_percent']
-
-                if action and self._pending_action != {} and not self._action_time:
-                    Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                    self._action_time = pg.time.get_ticks() + self._pending_action_length
-                    self._pending_action = action
-                    Mqtt.send(self._mqtt_action, action)
-                    print(action.keys())
-                    #self.log(f'{str(action[str(action.keys()[0])]).title()} requested')
-
-                if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLISTS (open)
-                    Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                    Menu.allow_controls = False
-                    self.show_playlists = True
-                    self.log('Opened playlists')
-            temp = self._pending_action.keys()
-            if (('pause' in temp or 'play' in temp) and self.value['is_playing'] != self._prev_value or
-                    ('skip' in temp or 'rewind' in temp) and self.value['item']['name'] != self._prev_value or
-                    'volume' in temp and self.value['device']['volume_percent'] != self._prev_value or
-                    'shuffle' in temp and self.value['shuffle_state'] != self._prev_value):
-                self.log(f'{self._pending_action.title()} confirmed')
-                set_info(f"{self._pending_action.title().replace('_', ' ')} confirmed")
-                self._action_time = 0
-                self._prev_value = None
-                self._pending_action = None
-
-            if self._action_time and pg.time.get_ticks() >= self._action_time:
-                self.err(f'{self._pending_action} timed out')
-                self._timeout_time = pg.time.get_ticks() + 5000
-                self._action_time = 0
-                self._prev_value = None
-                self._pending_action = None
-
-            if self.show_playlists:
+            if self.show_playlists:  # PLAYLISTS
                 if not Button_cooldown and (not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
                                             TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
                     if Menu.right[1].collidepoint(Mouse_pos):  # PLAYLIST (close)
@@ -1572,8 +1543,9 @@ class SPOTIFY(Window):
                             plist = self._playlists[index]
                             if rect['play'].collidepoint(Mouse_pos):  # Play
                                 Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-                                Mqtt.send(self._mqtt_action, plist['uri'])
-                                self.log(f"Playlist '{plist['id']}' ({plist['name']}) requested")
+                                Mqtt.send(self._mqtt_action, {'playlist': 0,
+                                                              'params': [{'device_id': self.value['device']['id'],
+                                                                          'context_uri': plist['uri']}]})
                             elif rect['move_u'].collidepoint(Mouse_pos) and index > 0:  # Move up
                                 Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                                 self._playlists[index] = self._playlists[index - 1]
@@ -1584,6 +1556,68 @@ class SPOTIFY(Window):
                                 self._playlists[index] = self._playlists[index + 1]
                                 self._playlists[index + 1] = plist
                                 self.log(f"Move playlist '{plist['id']}' ({plist['name']}) down")
+
+            else:  # CONTROLS
+                action = {}
+                if not Settings.active and not self.show_playlists and not Button_cooldown and (
+                        not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
+                        TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
+                    if self._data['center'].collidepoint(Mouse_pos):
+                        action.update({'pause': 0} if self.value['is_playing'] else {'play': 0})
+                        self._prev_value = self.value['is_playing']
+                    elif self._data['left'].collidepoint(Mouse_pos):
+                        action.update({'rewind': 0})
+                        self._prev_value = self.value['item']['name']
+                    elif self._data['right'].collidepoint(Mouse_pos):
+                        action.update({'skip': 0})
+                        self._prev_value = self.value['item']['name']
+                    elif self._data['far_right'].collidepoint(Mouse_pos):
+                        action.update({'shuffle': 0, 'params': [str(not self.value['shuffle_state']).lower()]})
+                        self._prev_value = self.value['shuffle_state']
+                    elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
+                          self.value['device']['volume_percent'] > 0):
+                        action.update({'volume_-': 0, 'params': [
+                            (self.value['device']['volume_percent'] - 5 if
+                             self.value['device']['volume_percent'] - 5 >= 0 else 0)]})
+                        self._prev_value = self.value['device']['volume_percent']
+                    elif (self._data['volume']['right_2'].collidepoint(Mouse_pos) and
+                          self.value['device']['volume_percent'] < 100):
+                        action.update({'volume_+': 0, 'params': [
+                            (self.value['device']['volume_percent'] + 5 if
+                             self.value['device']['volume_percent'] + 5 <= 100 else 100)]})
+                        self._prev_value = self.value['device']['volume_percent']
+
+                    if action and not self._pending_action and not self._action_time:
+                        Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                        self._action_time = pg.time.get_ticks() + self._pending_action_length
+                        action = self._config_params(action)  # Attach device_id to parameters
+                        self._pending_action = action
+                        Mqtt.send(self._mqtt_action, action)
+
+                    if self._data['far_left'].collidepoint(Mouse_pos):  # PLAYLISTS (open)
+                        Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
+                        Menu.allow_controls = False
+                        self.show_playlists = True
+                        self.log('Opened playlists')
+
+                temp = tuple(self._pending_action.keys())
+                if (('pause' in temp or 'play' in temp) and self.value['is_playing'] != self._prev_value or
+                        ('skip' in temp or 'rewind' in temp) and self.value['item']['name'] != self._prev_value or
+                        ('volume_+' in temp or 'volume_-' in temp) and
+                        self.value['device']['volume_percent'] != self._prev_value or
+                        'shuffle' in temp and self.value['shuffle_state'] != self._prev_value):
+                    self.log(f'{temp[0].title()} confirmed')
+                    set_info(f"{temp[0].title().replace('_', ' ')} confirmed")
+                    self._action_time = 0
+                    self._prev_value = None
+                    self._pending_action = {}
+
+                if self._action_time and pg.time.get_ticks() >= self._action_time:
+                    self.err(f'{self._pending_action} timed out')
+                    self._timeout_time = pg.time.get_ticks() + 5000
+                    self._action_time = 0
+                    self._prev_value = None
+                    self._pending_action = {}
 
 
 class OCTOPRINT(Window):
@@ -2063,7 +2097,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Spotify # Default window
+    Current_window = Spotify  #Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
