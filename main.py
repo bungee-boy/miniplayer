@@ -2135,7 +2135,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Spotify  #Default window
+    Current_window = Local_weather  # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
