@@ -1071,24 +1071,19 @@ class SPOTIFY(Window):
 
         _config_params(msg) will add device_id for you
         """
-        print(msg)
         if 'params' in msg.keys():  # If params are set already
             for index in range(0, len(msg['params'])):  # Loop through each parameter value
                 if msg['params'][index] is dict:  # If dict found
                     if 'device_id' in msg['params'][index].keys():  # If device_id already set
                         msg['params'][index]['device_id'] = self.value['device']['id']  # Set to current device_id
-                        print(msg, 1)
                     else:  # If device_id is not set
                         msg['params'][index].update({'device_id': self.value['device']['id']})  # Add device_id
-                        print(msg, 2)
                     break  # Jump to return as set
             else:  # If end of params
                 msg['params'].append({'device_id': self.value['device']['id']})  # Add device_id (end for loop)
-                print(msg, 3)
-
         else:  # If no params are set
             msg.update({'params': [{'device_id': self.value['device']['id']}]})  # Set to current device_id
-            print(msg, 4)
+
         return msg  # Return configured message
 
     def _fetch_image(self, url: str):
