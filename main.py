@@ -1105,7 +1105,7 @@ class SPOTIFY(Window):
         self._data = {'icon': (Img['spotify']['logo'],
                                Img['spotify']['logo'].get_rect(center=(CENTER[0], Menu.left[1].centery))),
                       'bg': None,
-                      'explicit': Img['spotify']['explicit'],
+                      'explicit': (Img['spotify']['explicit'], Img['spotify']['explicit'].get_rect()),
                       'album_cover': (cover, cover.get_rect(topleft=(100, 125))),
                       'pause': Img['spotify']['pause'],
                       'play': Img['spotify']['play'],
@@ -1176,6 +1176,7 @@ class SPOTIFY(Window):
                 'supports_volume': False,
                 'volume_percent': 0},
             'shuffle_state': False,
+            'repeat_state': 'off',
             'context': {
                 'type': '',
                 'uri': ''},
@@ -1434,10 +1435,13 @@ class SPOTIFY(Window):
             txt = render_text(self.value['item']['name'], 35, bold=True,
                               bottomleft=(self._data['album_cover'][1].right + 25,
                                           self._data['album_cover'][1].top + self._data['album_cover'][1].height / 4))
-            surf.blit(*txt)  # SONG DETAILS
-            surf.blit(*render_text(self.value['item']['artists'][0]['name'], 35,
+            surf.blit(*txt)  # Song name
+            if self.value['item']['explicit']:  # Explicit
+                self._data['explicit'][1].midleft = (txt[1].right + 15, txt[1].centery)
+                surf.blit(*self._data['explicit'])
+            surf.blit(*render_text(self.value['item']['artists'][0]['name'], 35,  # Artist name
                                    midleft=(txt[1].left, self._data['album_cover'][1].centery)))
-            surf.blit(*render_text(self.value['item']['album']['name'], 35,
+            surf.blit(*render_text(self.value['item']['album']['name'], 35,  # Album name
                                    topleft=(txt[1].left, self._data['album_cover'][1].centery +
                                             self._data['album_cover'][1].height / 4)))
 
@@ -1455,7 +1459,9 @@ class SPOTIFY(Window):
             surf.blit(self._data['skip_r'][0 if 'skip' in pending_keys else 1], self._data['right'])  # Skip
             surf.blit(self._data['shuffle_active' if self.value['shuffle_state'] else 'shuffle']  # Shuffle
                       [0 if 'shuffle' in pending_keys else 1], self._data['far_left'])
-            surf.blit(self._data['repeat'][0], self._data['far_right'])  # Repeat
+            surf.blit(self._data['repeat'][0 if self.value['repeat_state'] == 'off' else   # Repeat
+                                           1 if self.value['repeat_state'] == 'context' else 2],  # Off, Context, Track
+                      self._data['far_right'])
             surf.blit(self._data['save'][0], self._data['far_right_2'])  # Save
 
             bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['item']['duration_ms'],  # PROGRESS BAR
@@ -1612,6 +1618,11 @@ class SPOTIFY(Window):
                     elif self._data['right'].collidepoint(Mouse_pos):  # Skip
                         action.update({'skip': 0})
                         self._prev_value = self.value['item']['name']
+                    elif self._data['far_right'].collidepoint(Mouse_pos):  # Repeat
+                        action.update({'repeat': 0, 'params': [
+                            'context' if self.value['repeat_state'] == 'off' else  # Off, Context, Track
+                            'track' if self.value['repeat_state'] == 'context' else 'off']})
+                        self._prev_value = self.value['repeat_state']
                     elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
                           self.value['device']['volume_percent'] > 0):  # Vol -
                         action.update({'volume_-': 0, 'params': [
@@ -1638,19 +1649,20 @@ class SPOTIFY(Window):
                         self.show_playlists = True
                         self.log('Opened playlists')
 
-                temp = tuple(self._pending_action.keys())
+                temp = tuple(self._pending_action.keys())  # Action confirmed
                 if (('pause' in temp or 'play' in temp) and self.value['is_playing'] != self._prev_value or
                         ('skip' in temp or 'rewind' in temp) and self.value['item']['name'] != self._prev_value or
                         ('volume_+' in temp or 'volume_-' in temp) and
                         self.value['device']['volume_percent'] != self._prev_value or
-                        'shuffle' in temp and self.value['shuffle_state'] != self._prev_value):
+                        'shuffle' in temp and self.value['shuffle_state'] != self._prev_value or
+                        'repeat' in temp and self.value['repeat_state'] != self._prev_value):
                     self.log(f'{temp[0].title()} confirmed')
                     set_info(f"{temp[0].title().replace('_', ' ')} confirmed")
                     self._action_time = 0
                     self._prev_value = None
                     self._pending_action = {}
 
-                if self._action_time and pg.time.get_ticks() >= self._action_time:
+                if self._action_time and pg.time.get_ticks() >= self._action_time:  # Action timed out
                     self.err(f'{self._pending_action} timed out')
                     self._timeout_time = pg.time.get_ticks() + 5000
                     self._action_time = 0
@@ -2135,7 +2147,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Local_weather  # Default window
+    Current_window = Spotify  #Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
