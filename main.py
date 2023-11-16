@@ -1322,7 +1322,7 @@ class SPOTIFY(Window):
         if data or client:
             pass
         if message.topic == self._mqtt_response:
-            #try:
+            try:
                 msg = json.loads(message.payload.decode('utf-8'))
                 if msg != {}:
                     self._playing = True
@@ -1378,18 +1378,18 @@ class SPOTIFY(Window):
                 if self._timestamp_color != Colour['green']:
                     self._timestamp_color = Colour['green']
 
-            #except Exception as err:
-            #    handle(err)
-            #    if self._timestamp_color != Colour['red']:
-            #        self._timestamp_color = Colour['red']
-            #        self.timestamp = f'ERR: {err}'
-            #    self._load_default()
-            #except:
-            #    self.err('MQTT receive error -> unknown')
-            #    if self._timestamp_color != Colour['red']:
-            #        self._timestamp_color = Colour['red']
-            #        self.timestamp = 'ERR: Unknown'
-            #    self._load_default()
+            except Exception as err:
+                handle(err)
+                if self._timestamp_color != Colour['red']:
+                    self._timestamp_color = Colour['red']
+                    self.timestamp = f'ERR: {err}'
+                self._load_default()
+            except:
+                self.err('MQTT receive error -> unknown')
+                if self._timestamp_color != Colour['red']:
+                    self._timestamp_color = Colour['red']
+                    self.timestamp = 'ERR: Unknown'
+                self._load_default()
 
     def start(self):
         if self.active:
