@@ -1009,7 +1009,7 @@ class LOCALWEATHER(Window):
         surf.blit(*render_bar((350, 18), self.value['clouds'], 0, 100, fill_color=Colour['grey'],
                               midtop=(self._data['clouds'][1].centerx, self._data['clouds'][1].bottom + 20)))
         surf.blit(*self._data['vis'])
-        surf.blit(*render_bar((350, 18), self.value['vis'], 0, 100, fill_color=Colour['grey'],
+        surf.blit(*render_bar((350, 18), int((self.value['vis'] / 10000) * 100), 0, 100, fill_color=Colour['grey'],
                               midtop=(self._data['vis'][1].centerx, self._data['vis'][1].bottom + 20)))
 
         surf.blit(*render_text(self.timestamp, 30, self._timestamp_color,
@@ -1345,7 +1345,7 @@ class SPOTIFY(Window):
                     cover = pg.transform.smoothscale(cover, (300, 300))
                     self._data['album_cover'] = cover, cover.get_rect(topleft=(100, 125))
 
-                if msg['context'] != None:
+                if msg['context'] is not None:
                     if msg['context']['type'] == 'playlist':
                         msg['context']['uri'] = msg['context']['uri'].replace('spotify:playlist:', '')
                         # If current song is in playlist
