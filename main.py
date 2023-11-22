@@ -1032,6 +1032,7 @@ class SPOTIFY(Window):
     def __init__(self):
         super().__init__('Spotify')
         self._playing = False
+        self._liked_song = None
         self._update_ms = 0
         self._pending_action = {}
         self._pending_value = None
@@ -1190,6 +1191,7 @@ class SPOTIFY(Window):
                 'duration_ms': 0,
                 'duration': '-:--',
                 'explicit': False,
+                'id': '',
                 'name': 'Loading...',
             },
             'currently_playing_type': '',
@@ -1313,6 +1315,27 @@ class SPOTIFY(Window):
         Settings.value['Playlist Order'] = temp
         Settings.save()
 
+    def _liked(self, track_id: str, state=None):
+        try:  # Request data from Node-RED
+            request = (f"http://{NODERED_IP}:{NODERED_PORT}/spotify/saved?id={track_id}" +
+                       (f"&state={state}" if state is not None else ''))
+            print(request)
+            response = requests.get(request, timeout=10)
+        except Exception as err:
+            self._liked_song = None
+            self.err('Liked song failed', data=err)
+            return
+
+        if response.status_code == 200:
+            self._liked_song = json.load(io.BytesIO(response.content))[0]
+            self.log(f'Liked song response: {self._liked_song}')  # Decode response
+
+        else:
+            self._liked_song = None
+            self.err(f"Liked song failed (code={response.status_code} "
+                     f"url={request})")
+            return
+
     def reload_playlists(self) -> bool:
         self._playlists = []
         self._active_playlist = None
@@ -1331,7 +1354,7 @@ class SPOTIFY(Window):
                     return
 
                 if msg['currently_playing_type'] != 'track':
-                    raise ValueError(f"Spotify is not playing a track! ('{msg['currently_playing_type']}')")
+                    self.err(f"Spotify is not playing a track! ('{msg['currently_playing_type']}')", cat='WRN')
 
                 # Fetch album artwork
                 if msg['item']['album']['images'][0]['url'] != self.value['item']['album']['images'][0]['url']:
@@ -1362,7 +1385,10 @@ class SPOTIFY(Window):
                 else:
                     self.value.update({'context': {'type': '', 'uri': ''}})
 
-                msg['item']['name'] = self._shorten(msg['item']['name'])
+                if msg['item']['id'] != self.value['item']['id']:  # If new song is playing
+                    self._liked(msg['item']['id'])  # Ask nodered if it is liked or not
+
+                msg['item']['name'] = self._shorten(msg['item']['name'])  # Format and convert values to look nice
                 msg['item']['duration_ms'] = int(msg['item']['duration_ms'])
                 msg['item'].update({'duration': convert_s(msg['item']['duration_ms'] // 1000)})
                 msg['progress_ms'] = int(msg['progress_ms'])
@@ -1462,7 +1488,8 @@ class SPOTIFY(Window):
             surf.blit(self._data['repeat'][0 if self.value['repeat_state'] == 'off' else   # Repeat
                                            1 if self.value['repeat_state'] == 'context' else 2],  # Off, Context, Track
                       self._data['far_right'])
-            surf.blit(self._data['save'][0], self._data['far_right_2'])  # Save
+            if self._liked_song is not None:
+                surf.blit(self._data['save'][1 if self._liked_song else 0], self._data['far_right_2'])  # Save
 
             bar = render_bar((800, 16), self.value['progress_ms'], 0, self.value['item']['duration_ms'],  # PROGRESS BAR
                              midtop=(CENTER[0], self._data['center'].bottom + 40))
@@ -1620,9 +1647,11 @@ class SPOTIFY(Window):
                         self._prev_value = self.value['item']['name']
                     elif self._data['far_right'].collidepoint(Mouse_pos):  # Repeat
                         action.update({'repeat': 0, 'params': [
-                            'context' if self.value['repeat_state'] == 'off' else  # Off, Context, Track
+                            'context' if self.value['repeat_state'] == 'off' else  # (Off, Context, Track)
                             'track' if self.value['repeat_state'] == 'context' else 'off']})
                         self._prev_value = self.value['repeat_state']
+                    elif self._data['far_right_2'].collidepoint(Mouse_pos) and self._liked_song is not None:  # Save
+                        self._liked(self.value['item']['id'], state=False if self._liked_song else True)  # http
                     elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
                           self.value['device']['volume_percent'] > 0):  # Vol -
                         action.update({'volume_-': 0, 'params': [
@@ -2147,7 +2176,7 @@ if __name__ == '__main__':
         pg.quit()
         quit()
 
-    Current_window = Spotify  #Default window
+    Current_window = Local_weather  # Default window
     if DEBUG:  # Start main() without error handling if debugging
         try:
             main()
