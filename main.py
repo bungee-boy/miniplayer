@@ -438,7 +438,7 @@ class BACKLIGHT(Window):
             pass
         if message.topic == self._mqtt_response:
             try:
-                msg = json.loads(message.payload.decode('utf-8'))
+                msg = json.loads(message.payload.decode())
                 if msg['brightness'] != self.brightness:
                     self.set(msg['brightness'])
             except:
@@ -923,7 +923,7 @@ class LOCALWEATHER(Window):
             pass
         if message.topic == self._mqtt_response:
             try:
-                self.value = json.loads(message.payload.decode('utf-8'))
+                self.value = json.loads(message.payload.decode())
                 self.value['state'] = self.value['state'].replace('Clouds', 'Cloudy')
                 self._snow = self.value['snow']
                 self.get_icon(self.value['icon'])
@@ -1346,7 +1346,7 @@ class SPOTIFY(Window):
             pass
         if message.topic == self._mqtt_response:
             try:
-                msg = json.loads(message.payload.decode('utf-8'))
+                msg = json.loads(message.payload.decode())
                 if msg != {}:
                     self._playing = True
                 else:
@@ -1578,9 +1578,10 @@ class SPOTIFY(Window):
         if self._playing:
             # UPDATE PROGRESS BAR
             if pg.time.get_ticks() - self._update_ms >= 1000 and self.value['is_playing'] and \
-                    self.value['progress_ms'] + 1000 < self.value['item']['duration_ms']:
+                    self.value['progress_ms'] + 1000 < self.value['item']['duration_ms']:  # If showing and needs update
                 self._update_ms = pg.time.get_ticks()
                 self.value['progress_ms'] += 1000
+                self.value['duration'] = convert_s(self.value['progress_ms'] // 1000)
                 self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
             elif self.value['progress_ms'] + 1000 >= self.value['item']['duration_ms']:
                 self.value['progress_ms'] = self.value['item']['duration_ms']
@@ -1761,7 +1762,7 @@ class OCTOPRINT(Window):
             pass
         if message.topic == self._mqtt_responses[0]:
             try:
-                msg = json.loads(message.payload.decode('utf-8'))
+                msg = json.loads(message.payload.decode())
                 self.value['path'] = msg['path']
                 self.value['progress'] = msg['progress']
                 self.value['state'] = msg['state']
@@ -1792,7 +1793,7 @@ class OCTOPRINT(Window):
 
         elif message.topic == self._mqtt_responses[1]:
             try:
-                msg = json.loads(message.payload.decode('utf-8'))
+                msg = json.loads(message.payload.decode())
                 self.value['pos'] = msg['position']
                 self._data['pos']['x'] = render_bar((140, 10), self.value['pos']['x'], 0, 320)
                 self.timestamp = strftime('%H:%M')
@@ -1814,7 +1815,7 @@ class OCTOPRINT(Window):
 
         elif message.topic == self._mqtt_responses[2]:
             try:
-                msg = json.loads(message.payload.decode('utf-8'))
+                msg = json.loads(message.payload.decode())
                 self.value['temp'] = msg
                 self.timestamp = strftime('%H:%M')
                 if self._timestamp_color != Colour['green']:
