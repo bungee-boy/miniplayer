@@ -2,128 +2,17 @@ import io
 import json
 import os
 import shutil
-import threading
 from time import strftime
 from datetime import datetime
 from math import floor
 from sys import argv as launch_opt
-from timeit import default_timer as timer
-from uuid import getnode as get_mac
-import paho.mqtt.client as mqtt_client
-import pygame as pg
 import requests
-
+from windowBase import *
 try:
     import pigpio
 except ImportError:
-    pigpio = False
+    pigpio = None
 
-DEBUG = False
-LOGGING = False
-Last_err = None
-
-
-def handle(err: Exception or BaseException, save=True, repeat=False, traceback=True):
-    global Last_err
-    if type(err) is KeyboardInterrupt:
-        return
-    msg = "{0}: {1}".format(str(type(err)).replace("<class '", '').replace("'>", ''), err)
-    if not repeat and msg == Last_err:
-        return
-    if DEBUG and traceback:  # Show traceback if debug is on
-        import traceback
-        traceback.print_exc()
-    print(msg)
-    Last_err = msg
-    if save:
-        try:
-            if DEBUG or LOGGING:
-                with open('miniplayer_err.log', 'a') as file:
-                    file.write(msg + '\n')
-        except:
-            print('Failed to log handled error -> unknown')
-
-
-try:
-    with (open('config.json') as launch_usr):
-        launch_usr = json.load(launch_usr)  # Load settings file
-        DEBUG = launch_usr['DEBUG']  # Enable debugging features
-        LOGGING = launch_usr['LOGGING']  # Enable logging features
-        NODERED_IP = launch_usr['NODERED_IP']  # Node-RED IP address (REQUIRED)
-        NODERED_PORT = launch_usr['NODERED_PORT']  # Node-RED Port (default: 1880 )
-        NODERED_USER = str(hex(get_mac())) if not launch_usr['NODERED_USER']\
-            else launch_usr['NODERED_USER']  # Node-RED username (default: '' = MAC_ADDRESS)
-        MQTT_IP = launch_usr['MQTT_IP']  # MQTT IP address (REQUIRED)
-        MQTT_PORT = launch_usr['MQTT_PORT']  # MQTT Port (default: 1883 )
-        MQTT_USER = launch_usr['MQTT_USER']  # MQTT username (if required) (default: '' )
-        MQTT_PASS = launch_usr['MQTT_PASS']  # MQTT password (if required) (default: '' )
-        MQTT_AUTO_RECONNECT = launch_usr['MQTT_AUTO_RECONNECT']  # Reconnect if no traffic for x ms (default: 900000 )
-        TOUCHSCREEN = launch_usr['TOUCHSCREEN']  # Enable touchscreen mode (hides cursor, no clicking ect)
-        FULLSCREEN = launch_usr['FULLSCREEN']  # Enable fullscreen mode (takes over entire screen)
-        BACKLIGHT_CONTROL = launch_usr['BACKLIGHT']  # Type of backlight control (0=Off, 1=Software, 2=GPIO)
-        MINIMUM_BRIGHTNESS = launch_usr['MIN_BRIGHTNESS']  # Minimum brightness 0 - 100%
-        BRIGHTNESS_OFFSET = launch_usr['BRIGHTNESS_OFFSET']  # Offset brightness 0 - 255
-        BACKLIGHT_PIN = launch_usr['BACKLIGHT_PIN']  # Pin (BCIM) to use if BACKLIGHT_CONTROL = 2
-        FPS = launch_usr['FPS']  # Frames per second (default: 30 )
-        RESOLUTION = launch_usr['RESOLUTION']  # Width and height of the display or window (default: 1280, 720 )
-        SCREEN = launch_usr['SCREEN']  # Screen number (for multiple displays)
-        SCREENSAVER_DELAY = launch_usr['SCREENSAVER']  # Active if no movement after x ms and enabled (default: 120000 )
-
-        if BACKLIGHT_CONTROL == 2 and not pigpio:
-            print("\nWARNING: BACKLIGHT_CONTROL is set to Hardware ('2'), but pigpio is not present!\n"
-                  "         Fallback to Software mode ('1') to prevent crash...")
-            BACKLIGHT_CONTROL = 1
-        pg.display.init()
-        if SCREEN > pg.display.get_num_displays() - 1:
-            print(f"\nWARNING: SCREEN is set to display {SCREEN} which does not exist!\n"
-                  "         Fallback to screen 0 to prevent crash...")
-            SCREEN = 0
-except FileNotFoundError or KeyError:
-    print("\nWARNING: 'config.json' failed, attempting to fix.\n")
-    try:
-        with open('config.json', 'w') as launch_usr:
-            launch_usr.seek(0)
-            json.dump({
-                "DEBUG": False,
-                "LOGGING": False,
-                "NODERED_IP": "",
-                "NODERED_PORT": 1880,
-                "NODERED_USER": "",
-                "MQTT_IP": "",
-                "MQTT_PORT": 1883,
-                "MQTT_USER": "",
-                "MQTT_PASS": "",
-                "MQTT_AUTO_RECONNECT": 900000,
-                "TOUCHSCREEN": False,
-                "FULLSCREEN": False,
-                "BACKLIGHT": 0,
-                "MIN_BRIGHTNESS": 5,
-                "BRIGHTNESS_OFFSET": 0,
-                "BACKLIGHT_PIN": 0,
-                "FPS": 30,
-                "RESOLUTION": [1280, 720],
-                "SCREEN": 0,
-                "SCREENSAVER": 120000}, launch_usr, indent=2)
-        print("'config.json' fixed successfully, please edit to correct settings!")
-        try:
-            import webbrowser
-            webbrowser.open('config.json')
-        finally:
-            quit()
-    except Exception or BaseException as error:
-        handle(error)
-        quit()
-    except:
-        print('Unhandled exception -> creating config.json')
-        quit()
-except Exception or BaseException as error:
-    handle(error)
-    quit()
-except:
-    print('Unhandled exception -> reading config.json')
-    quit()
-
-# UNHANDLED INIT
 if len(launch_opt) >= 1:  # LAUNCH OPTIONS
     if '--debug' in launch_opt:
         DEBUG = bool(int(launch_opt[launch_opt.index('--debug') + 1]))
@@ -132,305 +21,92 @@ if len(launch_opt) >= 1:  # LAUNCH OPTIONS
         LOGGING = bool(int(launch_opt[launch_opt.index('--logging') + 1]))
         print(f'Forced LOGGING {"On" if LOGGING else "Off"}')
 
-WIDTH, HEIGHT = RESOLUTION
-CENTER = WIDTH // 2, HEIGHT // 2
-Button_cooldown = 0
-Button_cooldown_length = 500 if TOUCHSCREEN else 100
-Mouse_pos = -1, -1
-Prev_mouse_pos = -2, -2
 Loaded_fonts = {}
-Colour = {'key': (1, 1, 1), 'black': (0, 0, 0), 'white': (255, 255, 255), 'grey': (155, 155, 155),
-          'd grey': (80, 80, 80), 'red': (251, 105, 98), 'yellow': (252, 252, 153), 'l green': (121, 222, 121),
-          'green': (18, 115, 53), 'amber': (200, 140, 0), 'l blue': (3, 140, 252)}
 Info = '', Colour['white'], 2000  # txt, colour, ms
 
 Loading_ani = None
 Menu = None
-
-Display = pg.display.set_mode(RESOLUTION, flags=pg.FULLSCREEN if FULLSCREEN else 0, display=SCREEN)
-Clock = pg.time.Clock()
-pg.display.set_caption('Miniplayer v2')
-pg.init()
-
-
-def load(img: str, size: tuple[int, int], alpha=True) -> pg.surface:
-    try:
-        if alpha:
-            return pg.Surface.convert_alpha(pg.image.load(img))
-        else:
-            return pg.Surface.convert(pg.image.load(img))
-
-    except Exception or BaseException as err:
-        handle(err, traceback=False)  # No traceback as too fast
-        surf = pg.surface.Surface(size)
-        surf.fill((150, 150, 150))
-        rect = surf.get_rect()
-        pg.draw.line(surf, (255, 0, 0), rect.topleft, rect.bottomright, 2)
-        pg.draw.line(surf, (255, 0, 0), rect.bottomleft, rect.topright, 2)
-
-        try:
-            temp = pg.font.Font('assets/thinfont.ttf', 15).render(img, False, (255, 255, 255))
-        except Exception or BaseException:
-            temp = pg.font.Font(None, 15).render(img, False, (255, 255, 255))
-
-        surf.blit(temp, temp.get_rect(center=rect.center))
-        return surf
-
+Button_cooldown = None
 
 try:
     pg.font.Font('assets/thinfont.ttf', 15)
 except Exception or BaseException as error:
-    handle(error, traceback=False)
+    Logging('main').handle(error, traceback=False)
 try:
     pg.font.Font('assets/boldfont.ttf', 15)
 except Exception or BaseException as error:
-    handle(error, traceback=False)
+    Logging('main').handle(error, traceback=False)
 
-Img = {  # ASSET DIRECTORIES / PATHS
-    'bg': load('assets/bg.jpg', (1280, 720), alpha=False),
-    'icon': load('assets/icon.ico', (32, 32)),
-    'menu': {
-        'menu': load('assets/menu.png', (50, 50)),
-        'settings': load('assets/settings.png', (50, 50)),
-        'cross': load('assets/cross.png', (50, 50)),
-        'on': load('assets/on.png', (50, 50)),
-        'off': load('assets/off.png', (50, 50)),
-        'none': load('assets/none.png', (50, 50))},
-    'weather': {
-        'storm': pg.transform.smoothscale(load('assets/weather/storm.png', (100, 100)), (300, 300)),
-        'storm_2': pg.transform.smoothscale(load('assets/weather/storm_2.png', (100, 100)), (300, 300)),
-        'storm_3': pg.transform.smoothscale(load('assets/weather/storm_3.png', (100, 100)), (300, 300)),
-        'rain': pg.transform.smoothscale(load('assets/weather/rain.png', (100, 100)), (300, 300)),
-        'rain_2': pg.transform.smoothscale(load('assets/weather/rain_2.png', (100, 100)), (300, 300)),
-        'rain_3': pg.transform.smoothscale(load('assets/weather/rain_3.png', (100, 100)), (300, 300)),
-        'rain_4': pg.transform.smoothscale(load('assets/weather/rain_4.png', (100, 100)), (300, 300)),
-        'rain_5': pg.transform.smoothscale(load('assets/weather/rain_5.png', (100, 100)), (300, 300)),
-        'hail': pg.transform.smoothscale(load('assets/weather/hail.png', (100, 100)), (300, 300)),
-        'snow': pg.transform.smoothscale(load('assets/weather/snow.png', (100, 100)), (300, 300)),
-        'snow_2': pg.transform.smoothscale(load('assets/weather/snow_2.png', (100, 100)), (300, 300)),
-        'snow_3': pg.transform.smoothscale(load('assets/weather/snow_3.png', (100, 100)), (300, 300)),
-        'mist': pg.transform.smoothscale(load('assets/weather/mist.png', (100, 100)), (300, 300)),
-        'dust': pg.transform.smoothscale(load('assets/weather/dust.png', (100, 100)), (300, 300)),
-        'haze': pg.transform.smoothscale(load('assets/weather/haze.png', (100, 100)), (300, 300)),
-        'fog': pg.transform.smoothscale(load('assets/weather/fog.png', (100, 100)), (300, 300)),
-        'wind': pg.transform.smoothscale(load('assets/weather/wind.png', (100, 100)), (300, 300)),
-        'tornado': pg.transform.smoothscale(load('assets/weather/tornado.png', (100, 100)), (300, 300)),
-        'sun': pg.transform.smoothscale(load('assets/weather/sun.png', (100, 100)), (300, 300)),
-        'cloud_2': pg.transform.smoothscale(load('assets/weather/cloud_2.png', (100, 100)), (300, 300)),
-        'cloud': pg.transform.smoothscale(load('assets/weather/cloud.png', (100, 100)), (300, 300))},
-    'spotify': {
-        'logo': pg.transform.smoothscale(load('assets/spotify/logo.png', (295, 89)), (212, 64)),
-        'explicit': load('assets/spotify/explicit.png', (35, 35)),
-        'pause': (load('assets/spotify/pause_0.png', (50, 50)),
-                  load('assets/spotify/pause_1.png', (50, 50))),
-        'play': (load('assets/spotify/play_0.png', (50, 50)),
-                 load('assets/spotify/play_1.png', (50, 50))),
-        'shuffle': (load('assets/spotify/shuffle_1.png', (50, 50)),
-                    load('assets/spotify/shuffle_1.png', (50, 50))),
-        'shuffle_active': (load('assets/spotify/shuffle_active_1.png', (50, 50)),
-                           load('assets/spotify/shuffle_active_1.png', (50, 50))),
-        'repeat': (load('assets/spotify/repeat_0.png', (50, 50)),
-                   load('assets/spotify/repeat_1.png', (50, 50)),
-                   load('assets/spotify/repeat_2.png', (50, 50))),
-        'save': (load('assets/spotify/save_0.png', (50, 50)),
-                 load('assets/spotify/save_1.png', (50, 50))),
-        'playlist': load('assets/spotify/playlist_1.png', (50, 50)),
-        'skip': (load('assets/spotify/skip_0.png', (50, 50)),
-                 load('assets/spotify/skip_1.png', (50, 50))),
-        'mute': load('assets/spotify/mute.png', (50, 50)),
-        'vol 0': load('assets/spotify/vol_0.png', (50, 50)),
-        'vol 50': load('assets/spotify/vol_50.png', (50, 50)),
-        'vol 100': load('assets/spotify/vol_100.png', (50, 50)),
-        'vol -': (load('assets/spotify/vol_-_0.png', (50, 50)),
-                  load('assets/spotify/vol_-_1.png', (50, 50))),
-        'vol +': (load('assets/spotify/vol_+_0.png', (50, 50)),
-                  load('assets/spotify/vol_+_1.png', (50, 50)))}}
-
-Bg = pg.transform.scale(Img['bg'], (WIDTH, HEIGHT))
-Bg.set_alpha(130)
-pg.display.set_icon(Img['icon'])
+Img.update({'weather': {
+        'storm': pg.transform.smoothscale(load_img('assets/weather/storm.png', (100, 100)), (300, 300)),
+        'storm_2': pg.transform.smoothscale(load_img('assets/weather/storm_2.png', (100, 100)), (300, 300)),
+        'storm_3': pg.transform.smoothscale(load_img('assets/weather/storm_3.png', (100, 100)), (300, 300)),
+        'rain': pg.transform.smoothscale(load_img('assets/weather/rain.png', (100, 100)), (300, 300)),
+        'rain_2': pg.transform.smoothscale(load_img('assets/weather/rain_2.png', (100, 100)), (300, 300)),
+        'rain_3': pg.transform.smoothscale(load_img('assets/weather/rain_3.png', (100, 100)), (300, 300)),
+        'rain_4': pg.transform.smoothscale(load_img('assets/weather/rain_4.png', (100, 100)), (300, 300)),
+        'rain_5': pg.transform.smoothscale(load_img('assets/weather/rain_5.png', (100, 100)), (300, 300)),
+        'hail': pg.transform.smoothscale(load_img('assets/weather/hail.png', (100, 100)), (300, 300)),
+        'snow': pg.transform.smoothscale(load_img('assets/weather/snow.png', (100, 100)), (300, 300)),
+        'snow_2': pg.transform.smoothscale(load_img('assets/weather/snow_2.png', (100, 100)), (300, 300)),
+        'snow_3': pg.transform.smoothscale(load_img('assets/weather/snow_3.png', (100, 100)), (300, 300)),
+        'mist': pg.transform.smoothscale(load_img('assets/weather/mist.png', (100, 100)), (300, 300)),
+        'dust': pg.transform.smoothscale(load_img('assets/weather/dust.png', (100, 100)), (300, 300)),
+        'haze': pg.transform.smoothscale(load_img('assets/weather/haze.png', (100, 100)), (300, 300)),
+        'fog': pg.transform.smoothscale(load_img('assets/weather/fog.png', (100, 100)), (300, 300)),
+        'wind': pg.transform.smoothscale(load_img('assets/weather/wind.png', (100, 100)), (300, 300)),
+        'tornado': pg.transform.smoothscale(load_img('assets/weather/tornado.png', (100, 100)), (300, 300)),
+        'sun': pg.transform.smoothscale(load_img('assets/weather/sun.png', (100, 100)), (300, 300)),
+        'cloud_2': pg.transform.smoothscale(load_img('assets/weather/cloud_2.png', (100, 100)), (300, 300)),
+        'cloud': pg.transform.smoothscale(load_img('assets/weather/cloud.png', (100, 100)), (300, 300))}})
+Img.update({'spotify': {
+        'logo': pg.transform.smoothscale(load_img('assets/spotify/logo.png', (295, 89)), (212, 64)),
+        'explicit': load_img('assets/spotify/explicit.png', (35, 35)),
+        'pause': (load_img('assets/spotify/pause_0.png', (50, 50)),
+                  load_img('assets/spotify/pause_1.png', (50, 50))),
+        'play': (load_img('assets/spotify/play_0.png', (50, 50)),
+                 load_img('assets/spotify/play_1.png', (50, 50))),
+        'shuffle': (load_img('assets/spotify/shuffle_1.png', (50, 50)),
+                    load_img('assets/spotify/shuffle_1.png', (50, 50))),
+        'shuffle_active': (load_img('assets/spotify/shuffle_active_1.png', (50, 50)),
+                           load_img('assets/spotify/shuffle_active_1.png', (50, 50))),
+        'repeat': (load_img('assets/spotify/repeat_0.png', (50, 50)),
+                   load_img('assets/spotify/repeat_1.png', (50, 50)),
+                   load_img('assets/spotify/repeat_2.png', (50, 50))),
+        'save': (load_img('assets/spotify/save_0.png', (50, 50)),
+                 load_img('assets/spotify/save_1.png', (50, 50))),
+        'playlist': load_img('assets/spotify/playlist_1.png', (50, 50)),
+        'skip': (load_img('assets/spotify/skip_0.png', (50, 50)),
+                 load_img('assets/spotify/skip_1.png', (50, 50))),
+        'mute': load_img('assets/spotify/mute.png', (50, 50)),
+        'vol 0': load_img('assets/spotify/vol_0.png', (50, 50)),
+        'vol 50': load_img('assets/spotify/vol_50.png', (50, 50)),
+        'vol 100': load_img('assets/spotify/vol_100.png', (50, 50)),
+        'vol -': (load_img('assets/spotify/vol_-_0.png', (50, 50)),
+                  load_img('assets/spotify/vol_-_1.png', (50, 50))),
+        'vol +': (load_img('assets/spotify/vol_+_0.png', (50, 50)),
+                  load_img('assets/spotify/vol_+_1.png', (50, 50)))}})
 
 
 # CLASSES
-class Window:
-    def __init__(self, name: str):
-        self.name = name
-        self.active = False
-        self.message = {}
-        self.timestamp = '--:--'
-        self._timestamp_color = Colour['yellow']
-
-    def _load_default(self):
-        pass
-
-    def log(self, msg, cat=None):
-        try:
-            msg = f"[{datetime.now().strftime('%x %X')}][{cat if cat else 'LOG'}][{self.name}] {msg}."
-            print(msg)
-            if LOGGING:
-                with open('miniplayer.log', 'a') as file:
-                    file.write(msg + '\n')
-        except (Exception, BaseException) as err:
-            handle(err, save=False)  # Do not save as error with log
-        except:
-            print('Failed log msg -> unknown')
-
-    def err(self, msg, cat=None, data=None):
-        try:
-            msg = '[{0}][{1}][{2}] {3}!{4}'.format(datetime.now().strftime('%x %X'), cat if cat else 'ERR', self.name,
-                                                   msg, f' ({data})' if data else '')
-            print(msg)
-            with open('miniplayer_err.log', 'a') as file:
-                file.write(msg + '\n')
-            if LOGGING:
-                with open('miniplayer.log', 'a') as file:
-                    file.write(msg + '\n')
-        except (Exception, BaseException) as err:
-            handle(err, save=False)  # Do not save as error with log
-        except:
-            print('Failed log error -> unknown')
-
-    def receive(self, client, data, message: mqtt_client.MQTTMessage):
-        pass
-
-    def start(self):
-        pass
-
-    def stop(self):
-        Menu.allow_screensaver = True
-        self.log('Allowed screensaver')
-
-    def draw(self, surf=Display):
-        surf.fill(Colour['black'])
-        surf.blit(*render_text(self.name, 20, bold=True, center=(CENTER[0], Menu.right[1].centery)))
-        surf.blit(*render_text(self.timestamp, 15, self._timestamp_color, bottomleft=(5, HEIGHT - 3)))
-
-    def update(self):
-        pass
-
-
-class LoadingAni(Window):
-    def __init__(self):
-        super().__init__('Loading Ani')
-        self._running = False
-        self._event = threading.Event()
-        self.thread = threading.Thread(name='loading ani', target=self.ani)
-        self.msg = ''
-        self.msg_colour = None
-
-    def ani(self, pos=CENTER, colour=Colour['white'], size=(125, 125), dot_size=25, speed=18):
-        surf = Display
-        self._running = True
-        self._event = threading.Event()
-
-        dots = []
-        for dot in range(0, 8):
-            dots.append(pg.surface.Surface((dot_size, dot_size)))
-            dots[dot].fill(Colour['key'])
-            dots[dot].set_colorkey(Colour['key'])
-            pg.draw.circle(dots[dot], colour, (dot_size // 2, dot_size // 2), dot_size // 2)
-            dots[dot].set_alpha(255 // 8 * dot)
-            dots[dot] = dots[dot], dots[dot].get_rect()
-        dots[0][1].center = pos[0], pos[1] - size[1] // 2
-        dots[1][1].center = pos[0] + size[0] // 3, pos[1] - size[1] // 3
-        dots[2][1].center = pos[0] + size[0] // 2, pos[1]
-        dots[3][1].center = pos[0] + size[0] // 3, pos[1] + size[1] // 3
-        dots[4][1].center = pos[0], pos[1] + size[1] // 2
-        dots[5][1].center = pos[0] - size[0] // 3, pos[1] + size[1] // 3
-        dots[6][1].center = pos[0] - size[0] // 2, pos[1]
-        dots[7][1].center = pos[0] - size[0] // 3, pos[1] - size[1] // 3
-
-        try:
-            while not self._event.is_set():
-                if Menu and Menu.allow_screensaver:
-                    Menu.allow_screensaver = False
-
-                Clock.tick(FPS)
-
-                for event in pg.event.get():
-                    if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
-                        raise KeyboardInterrupt
-
-                for dot in dots:  # Loop alpha for each dot to create animation
-                    alpha = dot[0].get_alpha()
-                    if alpha - speed < 0 and alpha != 0:
-                        alpha = 0
-                    elif alpha - speed <= 0:
-                        alpha = 255
-                    else:
-                        alpha -= speed
-                    dot[0].set_alpha(alpha)
-
-                surf.fill(Colour['black'])
-                surf.blit(Bg, (0, 0))
-                surf.blit(dots[0][0], dots[0][1].topleft)
-                surf.blit(dots[1][0], dots[1][1].topleft)
-                surf.blit(dots[2][0], dots[2][1].topleft)
-                surf.blit(dots[3][0], dots[3][1].topleft)
-                surf.blit(dots[4][0], dots[4][1].topleft)
-                surf.blit(dots[5][0], dots[5][1].topleft)
-                surf.blit(dots[6][0], dots[6][1].topleft)
-                surf.blit(dots[7][0], dots[7][1].topleft)
-                if self.msg:
-                    self.msg_colour = Colour['white'] if not self.msg_colour else self.msg_colour
-                    surf.blit(*render_text(self.msg, 30, colour=self.msg_colour, bold=True,
-                                           midtop=(pos[0], pos[1] + size[1])))
-                pg.display.update()
-
-            self.thread = threading.Thread(target=self.ani)
-            self._event = threading.Event()
-            self._running = False
-            return
-
-        except Exception or BaseException as err:
-            handle(err)
-            self._running = False
-            return
-
-        except:
-            self.err('Animation stopped -> unknown')
-            self._running = False
-            return
-
-    def start(self, msg=None, msg_colour=None, **kwargs):
-        self.msg = msg
-        self.msg_colour = msg_colour
-        if not self.thread.is_alive() and not self._running:
-            self.thread = threading.Thread(name='loading ani', target=self.ani, kwargs=kwargs)
-            self.thread.start()
-            self.log('Started')
-        else:
-            self.log('Prevented multiple threads from starting', cat='WRN')
-
-    def stop(self):
-        self._event.set()
-        if self.thread.is_alive():
-            self.thread.join()
-        self.msg = ''
-        self.msg_colour = None
-        self.thread = threading.Thread(name='loading ani', target=self.ani)
-        self._running = False
-        self.log('Stopped')
-
-
-class BACKLIGHT(Window):
+class BACKLIGHT(Logging):
     _mqtt_request = '/miniplayer/backlight/request'
     _mqtt_response = '/miniplayer/backlight'
-    pin = BACKLIGHT_PIN
+    pin = Config.conf['BACKLIGHT_PIN']
     freq = 500
 
     def __init__(self):
         super().__init__('Backlight')
-        if BACKLIGHT_CONTROL == 2 and pigpio:
+        if Config.conf['BACKLIGHT_CONTROL'] == 2 and pigpio:
             self._pi = pigpio.pi()
             self._pi.set_mode(self.pin, pigpio.OUTPUT)
         self.software_dim = pg.surface.Surface((WIDTH, HEIGHT))
         self.brightness = 0
         self.state = False
         Mqtt.subscribe(self._mqtt_response, self.receive, retain=True)
-        self.log(f"Running in mode {BACKLIGHT_CONTROL}")
+        self.log(f"Running in mode {Config.conf['BACKLIGHT_CONTROL']}")
         self.set(100)
-        if BACKLIGHT_CONTROL:  # If enabled, request from Node-Red
+        if Config.conf['BACKLIGHT_CONTROL']:  # If enabled, request from Node-Red
             Mqtt.send(self._mqtt_request, True)
 
     def receive(self, client, data, message):
@@ -446,423 +122,21 @@ class BACKLIGHT(Window):
                 self.set(100)
 
     def set(self, brightness: int):
-        brightness += BRIGHTNESS_OFFSET  # Add offset to brightness
+        brightness += Config.conf['BRIGHTNESS_OFFSET']  # Add offset to brightness
         self.brightness = 100 if brightness > 100 else (0 if brightness < 0 else brightness)  # Constrain to 0-100
-        if BACKLIGHT_CONTROL == 2 and pigpio:
+        if Config.conf['BACKLIGHT_CONTROL'] == 2 and pigpio:
             self._pi.hardware_PWM(self.pin, self.freq, self.brightness * 10000)
-        elif BACKLIGHT_CONTROL == 1:  # Software dimming
-            self.brightness = MINIMUM_BRIGHTNESS if self.brightness < MINIMUM_BRIGHTNESS else self.brightness  # Limit
+        elif Config.conf['BACKLIGHT_CONTROL'] == 1:  # Software dimming
+            self.brightness = Config.conf['MINIMUM_BRIGHTNESS'] if (
+                    self.brightness < Config.conf['MINIMUM_BRIGHTNESS']) else self.brightness  # Limit
             self.software_dim.set_alpha(255 - round(self.brightness / 100 * 255))
         self.log(f'Set brightness to {self.brightness}')
 
     def stop(self):
         self.set(0)
-        if BACKLIGHT_CONTROL == 2 and pigpio:
+        if Config.conf['BACKLIGHT_CONTROL'] == 2 and pigpio:
             self._pi.stop()
         self.log('Backlight stopped')
-
-
-class MENU(Window):
-    screensaver = False
-    allow_screensaver = True
-    allow_controls = True
-
-    def __init__(self):
-        super().__init__('Menu')
-        self.windows = []
-        self._retained_windows = []
-        self.right = Img['menu']['menu']
-        self.right = self.right, self.right.get_rect(midright=(WIDTH - 20, 40))
-        self.left = pg.transform.flip(self.right[0], True, False)
-        self.left = self.left, self.left.get_rect(midleft=(20, 40))
-        self.settings = Img['menu']['settings']
-        self.settings = self.settings, self.settings.get_rect(midright=(WIDTH - 80, 40))
-        self.cross = Img['menu']['cross']
-        self._screensaver_timer = 0
-
-    @staticmethod
-    def set_window(window):
-        global Current_window
-        Current_window.stop()
-        Current_window = window
-        Current_window.start()
-
-    def start_retained(self):
-        if self._retained_windows:
-            self.log('Starting windows')
-            for window in self._retained_windows:
-                window.start()
-                self._retained_windows.remove(window)
-
-    def stop(self, retain=False):
-        self.log('Stopping windows')
-        if retain:
-            for window in self.windows:
-                if window.active:
-                    window.stop()
-                    self._retained_windows.append(window)
-        else:
-            for window in self.windows:
-                if window.active:
-                    window.stop()
-
-    def move_left(self):
-        global Current_window
-        Current_window.stop()
-        index = self.windows.index(Current_window)
-        if index > 0:
-            Current_window = self.windows[index - 1]
-        Current_window.start()
-
-    def move_right(self):
-        global Current_window
-        Current_window.stop()
-        index = self.windows.index(Current_window)
-        if index < len(self.windows) - 1:
-            Current_window = self.windows[index + 1]
-        Current_window.start()
-
-    def draw(self, surf=Display):
-        if self.allow_controls:
-            if self.windows.index(Current_window) > 0:
-                surf.blit(*self.left)
-            if self.windows.index(Current_window) < len(self.windows) - 1:
-                surf.blit(*self.right)
-                surf.blit(*self.settings)
-            else:
-                surf.blit(self.settings[0], self.right[1])
-
-    def update(self):
-        global Button_cooldown
-        if Mouse_pos != Prev_mouse_pos or not self.allow_screensaver or not Settings.value['Screensaver']:
-            self.screensaver = False
-            self._screensaver_timer = pg.time.get_ticks() + SCREENSAVER_DELAY
-        if not self.screensaver and pg.time.get_ticks() >= self._screensaver_timer and \
-                self.allow_screensaver and Settings.value['Screensaver']:
-            self.screensaver = True
-            self.log('Started screensaver')
-        elif self.screensaver and pg.time.get_ticks() < self._screensaver_timer:
-            self.screensaver = False
-            self.log('Stopped screensaver')
-
-        # Page navigation
-        if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
-                TOUCHSCREEN and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
-            return
-        settings = self.settings[1] if self.windows.index(Current_window) < len(self.windows) - 1 else self.right[1]
-        if settings.collidepoint(Mouse_pos):  # Settings
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            Settings.active = True
-            self.allow_screensaver = False
-        elif self.left[1].collidepoint(Mouse_pos):
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.move_left()
-        elif self.right[1].collidepoint(Mouse_pos):
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.move_right()
-
-
-class SETTINGS(Window):
-    def __init__(self):
-        super().__init__('Settings')
-        self.shadow = pg.surface.Surface((WIDTH, HEIGHT))
-        self.shadow.set_alpha(160)
-        self.value = {}
-        surf = Img['menu']['on']
-        self._data = {}
-        self._data.update({'screensaver': surf.get_rect(midleft=(Menu.left[1].centerx + 50, 150))})
-        self._data.update({'device_info': surf.get_rect(midleft=(self._data['screensaver'].left,
-                                                                 self._data['screensaver'].centery + 100))})
-        self._data.update({'playlists': surf.get_rect(midleft=(self._data['device_info'].left,
-                                                               self._data['device_info'].centery + 100))})
-        self._data.update({'reconnect': surf.get_rect(midleft=(self._data['playlists'].left,
-                                                               self._data['playlists'].centery + 100))})
-        self._data.update({'close': surf.get_rect(midleft=(self._data['reconnect'].left,
-                                                           self._data['reconnect'].centery + 100))})
-        self.load()
-
-    def load(self):
-        try:
-            with open('settings.json') as file:
-                self.value = json.load(file)
-                self.log('Successfully loaded settings from file')
-
-        except FileNotFoundError:
-            self.err("Failed to load settings -> 'settings.json' not found")
-            try:
-                with open('settings.json', 'w') as file:
-                    json.dump({
-                        "Timestamps": True,
-                        "Device Info": True,
-                        "Screensaver": True,
-                        "Screensaver Info": True,
-                        "Playlist Order": []}, file, indent=2)
-            except Exception or BaseException as err:
-                handle(err)
-                self.err('Failed to create settings file, using defaults')
-                self.value = {
-                    "Timestamps": True,
-                    "Device Info": True,
-                    "Screensaver": True,
-                    "Screensaver Info": True,
-                    "Playlist Order": []}
-            except:
-                self.err('Unhandled exception -> SETTINGS.load() 2')
-                self.value = {
-                    "Timestamps": True,
-                    "Device Info": True,
-                    "Screensaver": True,
-                    "Screensaver Info": True,
-                    "Playlist Order": []}
-        except Exception or BaseException as err:
-            handle(err)
-        except:
-            self.err('Unhandled exception -> SETTINGS.load()')
-
-    def save(self):
-        try:
-            with open('settings.json', 'w') as file:
-                file.seek(0)
-                json.dump(self.value, file, indent=2)
-                file.truncate()
-                self.log('Successfully saved settings to file')
-        except Exception or BaseException as err:
-            handle(err)
-        except:
-            self.err('Unhandled exception -> SETTINGS.save()')
-
-    def update_draw(self, surf=Display):
-        global Button_cooldown
-
-        surf.blit(self.shadow, (0, 0))
-        surf.blit(*render_text('Settings', 50, bold=True, center=(CENTER[0], Menu.right[1].centery)))
-        surf.blit(Menu.settings[0], Menu.right[1])
-
-        # screensaver = render_button(self.value['Screensaver'], midleft=(Menu.left[1].centerx + 50, 150))
-
-        # device_info = render_button(self.value['Device Info'], midleft=(screensaver.left, screensaver.centery + 100))
-        # playlists = render_button(Colour['grey'], midleft=(device_info.left, device_info.centery + 100))
-        # reconnect = render_button(Colour['amber'], midleft=(playlists.left, playlists.centery + 100))
-        # close = render_button(Colour['red'], midleft=(reconnect.left, reconnect.centery + 100))
-
-        temp = 30  # Pad X
-        # SCREENSAVER
-        surf.blit(Img['menu']['on' if self.value['Screensaver'] else 'off'], self._data['screensaver'])
-        surf.blit(*render_text('Screensaver', 35, bold=True,
-                               midleft=(self._data['screensaver'].right + temp, self._data['screensaver'].centery)))
-        # DEVICE INFO
-        surf.blit(Img['menu']['on' if self.value['Device Info'] else 'off'], self._data['device_info'])
-        surf.blit(*render_text('Device Info', 35, bold=True,
-                               midleft=(self._data['device_info'].right + temp, self._data['device_info'].centery)))
-        # RELOAD PLAYLISTS
-        surf.blit(Img['menu']['none'], self._data['playlists'])
-        surf.blit(*render_text('Reload playlists', 35, bold=True,
-                               midleft=(self._data['playlists'].right + temp, self._data['playlists'].centery)))
-        # RECONNECT
-        surf.blit(Img['menu']['none'], self._data['reconnect'])
-        surf.blit(*render_text('Reconnect', 35, bold=True,
-                               midleft=(self._data['reconnect'].right + temp, self._data['reconnect'].centery)))
-        # CLOSE
-        surf.blit(Img['menu']['none'], self._data['close'])
-        surf.blit(*render_text('Close', 35, bold=True,
-                               midleft=(self._data['close'].right + temp, self._data['close'].centery)))
-        # MQTT INFO
-        surf.blit(*render_text(f'Connection: {MQTT_IP}   Username: {Mqtt.mac_address}', 30, bold=True,
-                               midbottom=(CENTER[0], HEIGHT - 10)))
-
-        if (not TOUCHSCREEN and not pg.mouse.get_pressed()[0] or
-                TOUCHSCREEN and Mouse_pos == Prev_mouse_pos) or Button_cooldown:
-            return
-        elif Menu.right[1].collidepoint(Mouse_pos):
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.active = False
-            Menu.allow_screensaver = True
-            self.save()
-        elif self._data['screensaver'].collidepoint(Mouse_pos):  # Screensaver
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.value['Screensaver'] = False if self.value['Screensaver'] else True
-        elif self._data['device_info'].collidepoint(Mouse_pos):  # Device info
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.value['Device Info'] = False if self.value['Device Info'] else True
-        elif self._data['playlists'].collidepoint(Mouse_pos):  # Reload
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.active = False  # Close settings automatically
-            if Spotify.reload_playlists():
-                set_info('Reloaded playlists')
-            else:
-                set_info('Playlist reload failed!', Colour['red'])
-        elif self._data['reconnect'].collidepoint(Mouse_pos):  # Reconnect
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            self.active = False  # Close settings automatically
-            Mqtt.reconnect()
-        elif self._data['close'].collidepoint(Mouse_pos):  # Close
-            Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            raise KeyboardInterrupt('Close button pressed')
-
-
-class MQTT(Window):
-    mac_address = NODERED_USER
-    _mqtt_window = '/miniplayer/window'
-
-    def __init__(self):
-        super().__init__('MQTT')
-        self.connected = False
-        self.retained = {}  # {'topic': response()}
-        self.subscribed = {}
-        self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
-        self._mqtt = mqtt_client.Client(self.mac_address)
-        self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
-        self._mqtt.on_message = self._global_response
-        self._mqtt.loop_start()
-        self.reconnect_pending = not self.connect()  # If not connected on boot, set to start reconnect.
-
-    def _set_reconnect(self, client=None, data=None, message=None):
-        if client or data or message:
-            pass
-        self.reconnect_pending = True
-
-    def _global_response(self, client, data, message):
-        self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT  # Update last msg time
-        if message.topic == self._mqtt_window and Settings.value['WINDOW_CHANGE']:  # If topic is to change windows
-            pass
-        else:
-            for topic in self.subscribed:
-                if topic == message.topic:  # Find corresponding topic
-                    self.subscribed[topic](client, data, message)  # Run appropriate response function on data
-                    break
-
-    def connect(self, ani=False):
-        if not self.connected or not self._mqtt.is_connected():
-            self.connected = False
-            self._mqtt.loop_stop()
-            self._mqtt.reinitialise(self.mac_address)
-            if MQTT_USER and MQTT_PASS:  # If username and password
-                self._mqtt.username_pw_set(MQTT_USER, MQTT_PASS)
-                self.log(f'Set credentials: {MQTT_USER}, {MQTT_PASS}')
-            self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
-            self._mqtt.on_message = self._global_response
-            self._mqtt.loop_start()
-            self.log(f"Connecting to '{MQTT_IP}' with username '{self.mac_address}'")
-            if ani:
-                Loading_ani.start(msg='Connecting...', msg_colour=Colour['amber'])
-            else:
-                Loading_ani.msg, Loading_ani.msg_colour = 'Connecting...', Colour['amber']
-            temp = timer()
-            try:
-                self._mqtt.connect(MQTT_IP, port=MQTT_PORT)  # Start connection
-                while not self._mqtt.is_connected():  # Wait for MQTT to connect
-                    pg.time.wait(250)
-                    if round(timer() - temp, 2) >= 10:  # Timeout after 10s
-                        self.err(f'Connection to {MQTT_IP} failed: Timed out', data=f'username={self.mac_address}')
-                        Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
-                        pg.time.wait(1500)
-                        if ani:
-                            Loading_ani.stop()
-                        return False
-
-            except Exception as err:  # If failure to connect
-                self.err(f'Connection to {MQTT_IP} failed: {err}', data=f'username={self.mac_address}')
-                Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
-                pg.time.wait(1500)
-                if ani:
-                    Loading_ani.stop()
-                return False
-
-            self.send(f'/miniplayer/connection/{self.mac_address}', 'connected')  # If connected
-            self.connected = True
-            self._last_msg_time = pg.time.get_ticks() + MQTT_AUTO_RECONNECT
-            self._mqtt.on_disconnect = self._set_reconnect
-            Loading_ani.msg, Loading_ani.msg_colour = 'Connected!', Colour['green']
-            pg.time.wait(1500)
-            if ani:
-                Loading_ani.stop()
-            self.log(f"Connected to '{MQTT_IP}' with username '{self.mac_address}'")
-            return True
-
-    def disconnect(self):
-        if self.connected or self._mqtt.is_connected():
-            self.send(f'/miniplayer/connection/{self.mac_address}', 'disconnected')
-            self.unsubscribe(None, unsub_all=True)
-            self.connected = False
-
-    def reconnect(self):
-        self.log('Reconnecting..')
-        self.reconnect_pending = False
-        Loading_ani.thread = threading.Thread(name='loading ani', target=Loading_ani.ani)
-        Loading_ani.start(msg='Reconnecting', msg_colour=Colour['red'])
-        Menu.stop(retain=True)
-        Menu.allow_screensaver = False
-        self.disconnect()
-        retry_delay = 9  # Start at 9s and double per retry (to cap at 30 minutes exactly)
-        pg.time.wait(500)
-        while True:
-            self.connect()  # Attempt connection
-            if self.connected:
-                break
-            else:
-                self.log(f'Waiting for {convert_s(retry_delay)}s')
-                for temp in range(0, round(retry_delay)):
-                    Loading_ani.msg = f'Reconnecting (retry in {convert_s(retry_delay - temp)})'
-                    pg.time.wait(1000)
-                if retry_delay < 1800:  # Cap at half an hour between attempts
-                    retry_delay *= 2
-                elif retry_delay > 1800:
-                    retry_delay = 1800
-
-        self.log('Reconnect complete')
-        Loading_ani.stop()
-        self.start_retained()
-        Menu.start_retained()
-
-    def subscribe(self, topics: str or tuple, response, retain=False):
-        if type(topics) is str:
-            topics = [topics]
-        for topic in topics:
-            if topic not in self.subscribed:
-                self._mqtt.subscribe(topic)
-                if retain:
-                    self.retained.update({topic: response})
-                self.subscribed.update({topic: response})
-                self.log(f"Subscribed to '{topic}'{' (retained)' if retain else ''}")
-            else:
-                self.log(f"Already subscribed to '{topic}'{' (retained)' if retain else ''}", cat='WRN')
-
-    def unsubscribe(self, topics: str or tuple, unsub_all=False):
-        if unsub_all:
-            for topic in self.subscribed:
-                self._mqtt.unsubscribe(topic)
-            self.subscribed = {}
-            self.log('Unsubscribed from all topics.')
-        else:
-            if type(topics) is str:  # If only one topic then pass as list
-                topics = [topics]
-
-            for topic in topics:
-                self._mqtt.unsubscribe(topic)
-                if topic in self.subscribed:
-                    self.subscribed.pop(topic)
-                    self.log(f"Unsubscribed from '{topic}'")
-                else:
-                    self.log(f"'{topic}' not in subscriptions", cat='WRN')
-
-                if topic in self.retained:
-                    self.retained.pop(topic)
-                    self.log(f"Removed '{topic}' from retained subscriptions")
-
-    def start_retained(self):
-        self.log('Starting retained topics')
-        for topic in self.retained:
-            self.subscribe(topic, self.retained[topic])
-
-    def send(self, topic: str, payload: dict or str):
-        msg = str(payload).replace("'", "\"")
-        self._mqtt.publish(topic, payload=msg)
-        self.log(f"Sent {msg} to {topic}")
-
-    def update(self):
-        if self._last_msg_time < pg.time.get_ticks():  # If no msg since auto_reconnect ms
-            self.log('Auto reconnect set', cat='WRN')
-            self._set_reconnect()  # Automatically start reconnect as no traffic sent
 
 
 class LOCALWEATHER(Window):
@@ -910,7 +184,7 @@ class LOCALWEATHER(Window):
             self.icon = Img['weather'][icon]
             self.icon = self.icon, self.icon.get_rect(topright=(CENTER[0] - 30, 50))
         except Exception or BaseException as err:
-            handle(err)
+            Logging('main').handle(err)
             self.err('Failed to load icon', data=f'id={icon}')
             self.icon = Img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
         except:
@@ -956,7 +230,7 @@ class LOCALWEATHER(Window):
                     self._timestamp_color = Colour['green']
 
             except Exception as err:
-                handle(err)
+                Logging('main').handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
                     self.timestamp = f'ERR: {err}'
@@ -1201,7 +475,8 @@ class SPOTIFY(Window):
     def _get_playlists(self) -> bool:
         self.log('Fetching playlists..')
         try:  # Request data from Node-RED
-            response = requests.get(f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists', timeout=10)
+            response = requests.get(
+                f"http://{Config.conf['NODERED_IP']}:{Config.conf['NODERED_PORT']}/spotify/playlists", timeout=10)
         except Exception as err:
             self._playlists = []
             self.err('Playlist fetch failed', data=err)
@@ -1216,18 +491,18 @@ class SPOTIFY(Window):
                     temp.update({playlist['id'].replace('spotify:playlist:', ''): playlist})  # Set id as key in dict
                 playlists = temp  # Reuse playlists as playlist by id
                 self._playlists = []  # Clear previous playlists
-                for key in Settings.value['Playlist Order']:  # For each ordered playlist add known playlists in order
+                for key in Config.setting['Playlist Order']:  # For each ordered playlist add known playlists in order
                     try:
                         self._playlists.append(playlists[key.replace('spotify:playlist:', '')])
                     except KeyError:
-                        Settings.value['Playlist Order'].remove(key)
+                        Config.setting['Playlist Order'].remove(key)
                         self.log(f"Removed invalid playlist from settings ('{key}')")
                 for key in playlists:  # For every playlist
-                    if key not in Settings.value['Playlist Order']:  # If unknown
+                    if key not in Config.setting['Playlist Order']:  # If unknown
                         self._playlists.append(playlists[key])  # Add unknown playlists to end
-                        Settings.value['Playlist Order'].append(playlists[key]['id'])  # Add to known playlists
+                        Config.setting['Playlist Order'].append(playlists[key]['id'])  # Add to known playlists
                 self.log('Playlists ordered successfully')
-                Settings.save()  # Save playlist order
+                Config.save_settings()  # Save playlist order
                 self.log('Loading playlist images...')
                 temp = timer()
                 cache = {}
@@ -1276,17 +551,18 @@ class SPOTIFY(Window):
 
             except Exception as err:
                 self._playlists = []
-                handle(err)
+                self.handle(err)
                 self.err('Playlist ordering failed')
                 return False
         else:
             self._playlists = []
-            self.err(f"Playlist fetch failed (code={response.status_code} "
-                     f"url={f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists'})")
+            temp = f"http://{Config.conf['NODERED_IP']}:{Config.conf['NODERED_PORT']}/spotify/playlists"
+            self.err(f"Playlist fetch failed (code={response.status_code} url={temp})")
             return False
 
     def _update_playlists(self, uid: str):
-        response = requests.get(f'http://{NODERED_IP}:{NODERED_PORT}/spotify/playlists?id={uid}')
+        response = requests.get(
+            f"http://{Config.conf['NODERED_IP']}:{Config.conf['NODERED_PORT']}/spotify/playlists?id={uid}")
         if response.status_code == 200:  # Fetch playlist
             try:
                 playlist = json.load(io.BytesIO(response.content))  # Decode response
@@ -1294,8 +570,8 @@ class SPOTIFY(Window):
                     return False
                 else:
                     self._playlists.append(playlist)
-                    Settings.value['Playlist Order'].append(playlist['id'])
-                    Settings.save()
+                    Config.setting['Playlist Order'].append(playlist['id'])
+                    Config.save_settings()
                     playlist['images'] = self._fetch_image(playlist['images'][0]['url'])
                     self.log(f"Playlist updated (id={uid}, name={playlist['name']})")
                     return playlist['id']
@@ -1312,14 +588,13 @@ class SPOTIFY(Window):
         temp = []
         for plist in self._playlists:
             temp.append(plist['id'])
-        Settings.value['Playlist Order'] = temp
-        Settings.save()
+        Config.setting['Playlist Order'] = temp
+        Config.save_settings()
 
     def _liked(self, track_id: str, state=None):
         try:  # Request data from Node-RED
-            request = (f"http://{NODERED_IP}:{NODERED_PORT}/spotify/saved?id={track_id}" +
+            request = (f"http://{Config.conf['NODERED_IP']}:{Config.conf['NODERED_PORT']}/spotify/saved?id={track_id}" +
                        (f"&state={state}" if state is not None else ''))
-            print(request)
             response = requests.get(request, timeout=10)
         except Exception as err:
             self._liked_song = None
@@ -1373,10 +648,10 @@ class SPOTIFY(Window):
                         msg['context']['uri'] = msg['context']['uri'].replace('spotify:playlist:', '')
                         # If current song is in playlist
                         if msg['context']['uri'] and ':collection' not in msg['context']['uri']:
-                            if msg['context']['uri'] not in Settings.value['Playlist Order']:  # If unknown
+                            if msg['context']['uri'] not in Config.setting['Playlist Order']:  # If unknown
                                 self._update_playlists(msg['context']['uri'])  # Fetch new
                             try:
-                                self._active_playlist = self._playlists[Settings.value[
+                                self._active_playlist = self._playlists[Config.setting[
                                     'Playlist Order'].index(msg['context']['uri'])]  # Set current
                             except:
                                 self._active_playlist = None
@@ -1405,7 +680,7 @@ class SPOTIFY(Window):
                     self._timestamp_color = Colour['green']
 
             except Exception as err:
-                handle(err)
+                self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
                     self.timestamp = f'ERR: {err}'
@@ -1556,7 +831,7 @@ class SPOTIFY(Window):
                           floor(len(self._playlists) / len(self._data['plist_rect'])) else 0],
                           self._data['plist']['scroll_d'][2])
 
-        if Settings.value['Device Info']:
+        if Config.setting['Device Info']:
             surf.blit(*render_text(self.value['device']['name'], 30, Colour['grey'],
                                    bottomright=(WIDTH - 5, HEIGHT - 3)))
         if self._timeout_time > pg.time.get_ticks() and not self.show_playlists:  # Action status
@@ -1588,8 +863,8 @@ class SPOTIFY(Window):
                 self.value['progress'] = convert_s(self.value['progress_ms'] // 1000)
 
             if self.show_playlists:  # PLAYLISTS
-                if not Button_cooldown and (not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
-                                            TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
+                if not Button_cooldown and (not Config.conf['TOUCHSCREEN'] and pg.mouse.get_pressed()[0] or
+                                            Config.conf['TOUCHSCREEN'] and pg.mouse.get_pos() != Prev_mouse_pos):
                     if Menu.right[1].collidepoint(Mouse_pos):  # PLAYLIST (close)
                         Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
                         self._save_playlists()
@@ -1632,8 +907,8 @@ class SPOTIFY(Window):
             else:  # CONTROLS
                 action = {}
                 if not Settings.active and not self.show_playlists and not Button_cooldown and (
-                        not TOUCHSCREEN and pg.mouse.get_pressed()[0] or
-                        TOUCHSCREEN and pg.mouse.get_pos() != Prev_mouse_pos):
+                        not Config.conf['TOUCHSCREEN'] and pg.mouse.get_pressed()[0] or
+                        Config.conf['TOUCHSCREEN'] and pg.mouse.get_pos() != Prev_mouse_pos):
                     if self._data['center'].collidepoint(Mouse_pos):  # Pause / Play
                         action.update({'pause': 0} if self.value['is_playing'] else {'play': 0})
                         self._prev_value = self.value['is_playing']
@@ -1779,7 +1054,7 @@ class OCTOPRINT(Window):
                     self._timestamp_color = Colour['green']
 
             except Exception as err:
-                handle(err)
+                self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
                     self.timestamp = f'ERR: {err}'
@@ -1801,7 +1076,7 @@ class OCTOPRINT(Window):
                     self._timestamp_color = Colour['green']
 
             except Exception as err:
-                handle(err)
+                self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
                     self.timestamp = f'ERR: {err}'
@@ -1822,7 +1097,7 @@ class OCTOPRINT(Window):
                     self._timestamp_color = Colour['green']
 
             except Exception as err:
-                handle(err)
+                self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
                     self.timestamp = 'ERR: {err}'
@@ -1872,143 +1147,6 @@ class OCTOPRINT(Window):
         Menu.allow_screensaver = not self.printing
 
 
-def convert_s(sec: int) -> str:
-    minutes = 0
-    hours = 0
-    if sec >= 60:
-        minutes = sec // 60
-        sec -= minutes * 60
-        if sec < 10:
-            sec = f'0{sec}'
-    elif sec < 10:
-        sec = f'0{sec}'
-    if minutes >= 60:
-        hours = minutes // 60
-        minutes -= hours * 60
-    if not sec:
-        sec = '00'
-    if not minutes and not hours:
-        minutes = '0'
-    elif not minutes and hours:
-        minutes = '00'
-    if not hours:
-        return str(minutes) + ':' + str(sec)
-    else:
-        return str(hours) + ':' + str(minutes) + ':' + str(sec)
-
-
-def convert_ms(timestamp: timer) -> float:
-    return round((timer() - timestamp) * 1000, 2)
-
-
-def render_text(text: str or int, size: int, colour=Colour['white'], bold=False, **kwargs)\
-        -> tuple[pg.surface, pg.rect]:
-    global Loaded_fonts
-    font = 'assets/boldfont.ttf' if bold else 'assets/thinfont.ttf'
-    font_name = str(size) + font
-    try:
-        loaded_font = Loaded_fonts[font_name]
-    except KeyError:
-        try:
-            loaded_font = pg.font.Font(font, size)
-            Loaded_fonts[font_name] = loaded_font
-        except Exception or BaseException:
-            loaded_font = pg.font.Font(None, size)
-    surf = loaded_font.render(str(text), True, colour)
-    return surf, surf.get_rect(**kwargs)
-
-
-def render_bar(size: tuple[int, int], value: int or float, min_value: int or float, max_value: int or float,
-               fill_color=Colour['white'], border_width=2, border_radius=7, border_color=Colour['white'], **kwargs)\
-        -> tuple[pg.surface, pg.rect]:
-    value = float(value)
-
-    surf = pg.surface.Surface((size[0], size[1]))
-    surf.fill((1, 1, 1))
-    surf.set_colorkey((1, 1, 1))
-
-    if min_value < 0:
-        min_value = -min_value  # Convert min value to positive number
-        ratio = ((size[0] - border_width - 1) / (max_value + min_value)) * (value + min_value)
-        if value > 0 - min_value:
-            pg.draw.line(surf, fill_color, (border_width, (size[1] / 2) - 1),
-                         (ratio, (size[1] / 2) - 1), width=size[1] - border_width * 2)
-
-        ratio = round((size[0] - border_width - 1) / max_value * value)
-        if value > min_value and ratio > border_width:
-            pg.draw.line(surf, Colour['white'] if value < 0 else Colour['grey'],
-                         (ratio, border_width), (ratio, size[1] - border_width))
-
-    else:
-        try:
-            ratio = round((size[0] - border_width - 1) / max_value * value)
-        except ZeroDivisionError:
-            ratio = 0
-        if value > min_value and ratio > border_width:
-            pg.draw.line(surf, fill_color, (border_width, (size[1] / 2) - 1),
-                         (ratio, (size[1] / 2) - 1), width=size[1] - border_width * 2)
-
-    pg.draw.rect(surf, border_color, (0, 0, size[0], size[1]), width=border_width, border_radius=border_radius)
-
-    return surf, surf.get_rect(**kwargs)
-
-
-def render_button(state: bool or tuple[int, int, int] or None, size=(70, 35), surf=Display, **kwargs) -> pg.rect:
-    surface = pg.surface.Surface((64, 32))
-    surface.fill(Colour['key'])
-    surface.set_colorkey(Colour['key'])
-    rect = surface.get_rect(**kwargs)
-
-    shade = pg.surface.Surface((64, 32))  # SHADING
-    shade.fill(Colour['key'])
-    shade.set_colorkey(Colour['key'])
-    shade.set_alpha(100)
-    if type(state) is tuple:
-        color = state
-    else:
-        if state:
-            color = Colour['l green']
-        elif state is None:
-            color = Colour['grey']
-        else:
-            color = Colour['red']
-    pg.draw.circle(shade, color, (16, 16), 14, draw_top_left=True, draw_bottom_left=True)
-    pg.draw.rect(shade, color, (16, 2, 32, 28))
-    pg.draw.circle(shade, color, (48, 16), 14, draw_top_right=True, draw_bottom_right=True)
-    surf.blit(pg.transform.scale(shade, size), rect.topleft)
-
-    if state and type(state) is bool:  # PIN
-        pg.draw.circle(surface, Colour['white'], (48, 16), 12, width=2)
-        pg.draw.circle(surface, Colour['green'], (48, 16), 10)
-    elif state is None or type(state) is tuple:
-        surface.blit(*render_text('Press', 18, bold=True, center=surface.get_rect().center))
-    else:
-        pg.draw.circle(surface, Colour['white'], (16, 16), 12, width=2)
-        pg.draw.circle(surface, Colour['red'], (16, 16), 10)
-
-    pg.draw.circle(surface, Colour['white'], (16, 16), 16, width=2, draw_top_left=True, draw_bottom_left=True)  # BORDER
-    pg.draw.line(surface, Colour['white'], (16, 0), (48, 0), width=2)
-    pg.draw.line(surface, Colour['white'], (16, 30), (48, 30), width=2)
-    pg.draw.circle(surface, Colour['white'], (48, 16), 16, width=2, draw_top_right=True, draw_bottom_right=True)
-    surf.blit(pg.transform.scale(surface, size), rect.topleft)
-
-    return rect
-
-
-def draw_bg(txt=False, surf=Display):
-    surf.blit(Bg, (0, 0))
-    if txt:
-        txt = render_text('Miniplayer', 64, bold=True, center=CENTER)
-        surf.blit(*txt)
-        surf.blit(*render_text('v2.0', 32, midtop=(txt[1].centerx, txt[1].bottom + 20)))
-
-
-def set_info(txt: str, colour=(24, 216, 97), timeout=2000):
-    global Info  # txt, colour, ms
-    if not Info[0] or Info[2] < pg.time.get_ticks():  # If not showing or timeout
-        Info = txt, colour, pg.time.get_ticks() + timeout
-
-
 def main():
     global Current_window, Button_cooldown, Mouse_pos, Prev_mouse_pos
     while True:  # Forever loop
@@ -2018,7 +1156,7 @@ def main():
         if Mqtt.reconnect_pending:
             Mqtt.reconnect()  # Reconnect sequence in main thread instead of threaded (issues if threaded)
 
-        Clock.tick(FPS)
+        Clock.tick(Config.conf['FPS'])
         for event in pg.event.get():  # Pygame event handling
             if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 raise KeyboardInterrupt
@@ -2033,7 +1171,6 @@ def main():
         try:
             if not Menu.screensaver:
                 if not Current_window.active:  # ALL WINDOWS
-                    print('[Main] Starting Current_window...')
                     Current_window.start()
                 # update_time = timer()
                 Current_window.update()
@@ -2071,7 +1208,7 @@ def main():
         except KeyboardInterrupt:
             return
         except (Exception, BaseException) as err:
-            handle(err)
+            Logging('main').handle(err)
         except:
             print('main() failed -> unknown')
 
@@ -2081,7 +1218,7 @@ def main():
         if Info[0] and Info[2] > pg.time.get_ticks():  # Show info
             Display.blit(*render_text(Info[0], 30, Info[1], bold=True, midbottom=(CENTER[0], HEIGHT - 10)))
 
-        if BACKLIGHT_CONTROL == 1:  # Display brightness through software
+        if Config.conf['BACKLIGHT_CONTROL'] == 1:  # Display brightness through software
             Display.blit(Backlight.software_dim, (0, 0))
 
         Prev_mouse_pos = Mouse_pos
@@ -2093,7 +1230,7 @@ def quit_all():
     if Loading_ani:
         Loading_ani.stop()
     if Settings.active:
-        Settings.save()
+        Config.save_settings()
     Menu.stop()
     if Backlight:
         Backlight.stop()
@@ -2106,24 +1243,24 @@ def quit_all():
 # RUN
 if __name__ == '__main__':
     try:  # Create log files for debugging
-        if LOGGING:
+        if Config.conf['LOGGER']:
             with open('miniplayer.log', 'a') as log:
                 log.write(f"\n[{datetime.now().strftime('%x %X')}][NEW][Main] NEW_INSTANCE.\n")
-                if DEBUG:
+                if Config.conf['DEBUG']:
                     log.write(f"\n[{datetime.now().strftime('%x %X')}][DBG][Main] DEBUG ON.\n")
         with open('miniplayer_err.log', 'a') as error:
             error.write(f"\n[{datetime.now().strftime('%x %X')}][NEW][Main] NEW_INSTANCE.\n")
-            if DEBUG:
+            if Config.conf['DEBUG']:
                 error.write(f"\n[{datetime.now().strftime('%x %X')}][DBG][Main] DEBUG ON.\n")
 
     except (Exception, BaseException) as error:
-        handle(error, save=False)  # Do not save as error with logging
+        Logging('main').handle(error, save=False)  # Do not save as error with logging
         LOGGING = False
     except:
         print('Failed to start log -> unknown')
         LOGGING = False
 
-    if TOUCHSCREEN:  # Hide mouse if touchscreen
+    if Config.setting['TOUCHSCREEN']:  # Hide mouse if touchscreen
         pg.mouse.set_visible(False)
 
     draw_bg(txt=True)  # Splashscreen
@@ -2136,13 +1273,13 @@ if __name__ == '__main__':
             quit()
 
     g_temp = None  # Start backlight if enabled
-    if BACKLIGHT_CONTROL == 2 and pigpio:
+    if Config.conf['BACKLIGHT_CONTROL'] == 2 and pigpio:
         try:
             g_temp = pigpio.pi()
             g_temp.set_mode(BACKLIGHT.pin, pigpio.OUTPUT)
             g_temp.hardware_PWM(BACKLIGHT.pin, BACKLIGHT.freq, 1000000)
         except (Exception, BaseException) as error:
-            handle(error)
+            Logging('main').handle(error)
         except:
             print('Failed to start backlight -> unknown')
 
@@ -2165,7 +1302,7 @@ if __name__ == '__main__':
         Backlight = BACKLIGHT()
         Loading_ani.stop()
     except (Exception, BaseException) as error:
-        handle(error)
+        Logging('main').handle(error)
         if Loading_ani:
             Loading_ani.stop()
         pg.quit()
@@ -2178,7 +1315,7 @@ if __name__ == '__main__':
         quit()
 
     Current_window = Local_weather  # Default window
-    if DEBUG:  # Start main() without error handling if debugging
+    if Config.conf['DEBUG']:  # Start main() without error handling if debugging
         try:
             main()
         except KeyboardInterrupt:  # If CTRL+C stop all windows and close
@@ -2190,7 +1327,7 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             quit_all()
         except (Exception, BaseException) as error:
-            handle(error)
+            Logging('main').handle(error)
         except:
             print('Unhandled exception -> main()')
         finally:  # Stop all windows and close after error handling

@@ -1,11 +1,9 @@
+.git/
 .idea/
 __pycache__/
+venv/
 old/
-playlists/
-tests/.pytest_cache
-old/
+src/playlists/
+src/miniplayer_err.log
+src/miniplayer.log
 tests/
-miniplayer_err.log
-miniplayer.log
-settings.json
-config.json

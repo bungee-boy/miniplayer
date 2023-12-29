@@ -1,0 +1,23 @@
+{
+  "DEBUG": true,
+  "LOGGING": false,
+  "NODERED_IP": "192.168.1.201",
+  "NODERED_PORT": 1880,
+  "NODERED_USER": "Windows_Debug",
+  "MQTT_IP": "192.168.1.201",
+  "MQTT_PORT": 1883,
+  "MQTT_USER": "mosquitto",
+  "MQTT_PASS": "bungeeboy12",
+  "MQTT_AUTO_RECONNECT": 900000,
+  "TOUCHSCREEN": false,
+  "FULLSCREEN": false,
+  "BACKLIGHT_CONTROL": 0,
+  "MIN_BRIGHTNESS": 1,
+  "BRIGHTNESS_OFFSET": 0,
+  "BACKLIGHT_PIN": 0,
+  "FPS": 15,
+  "RESOLUTION": [ 1280, 720 ],
+  "SCREEN": 0,
+  "SCREENSAVER_DELAY": 120000
+}
+
