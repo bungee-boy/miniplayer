@@ -1,11 +1,12 @@
 from datetime import datetime
+from platform import system
 import os
 import traceback
 
 
 # def open_log(folder: str, filepath: str):
 
-_Log_folder = "log\\"
+_Log_folder = "log" + ("\\" if system() == "Windows" else "/")
 _Log_path = datetime.now().strftime(f"{_Log_folder}miniplayer-%y-%m-%d.log")
 _Log_file = None
 

@@ -9,6 +9,7 @@ from timeit import default_timer as timer
 import paho.mqtt.client as mqtt_client
 import pygame as pg
 import requests
+from platform import system
 
 from lib.logger import Logging
 from lib.loader import ConfigLoader, ImgLoader
@@ -57,6 +58,10 @@ try:
     pg.font.Font('assets/boldfont.ttf', 15)
 except Exception or BaseException as error:
     Logging('Main').handle(error, trace=False)
+
+
+def folder():
+    return "\\" if system() == "Windows" else "/"
 
 
 # CLASSES
@@ -838,7 +843,7 @@ class SPOTIFY(Window):
     _mqtt_action = '/miniplayer/spotify/action'
     _mqtt_response = '/miniplayer/spotify/response'
     _pending_action_length = 12000
-    _playlist_dir = '\\temp\\playlists'
+    _playlist_dir = f"{folder()}temp{folder()}playlists"
 
     def __init__(self):
         super().__init__('Spotify')
