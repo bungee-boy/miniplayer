@@ -3,9 +3,6 @@ from platform import system
 import os
 import traceback
 
-
-# def open_log(folder: str, filepath: str):
-
 _Log_folder = "log" + ("\\" if system() == "Windows" else "/")
 _Log_path = datetime.now().strftime(f"{_Log_folder}miniplayer-%y-%m-%d.log")
 _Log_file = None
@@ -48,6 +45,7 @@ class Logging:
     DEBUG = 5
 
     _Last_err = None
+    Live_logging = False
     Log_level = INFO
 
     def __init__(self, name: str) -> None:
@@ -59,12 +57,17 @@ class Logging:
 
     @staticmethod
     def close_log():
-        if not _Log_file.closed:
-            _Log_file.write(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
-                            f"*** End instance ***\n")
-            _Log_file.close()
-            print(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
-                  f"Closed the current log file")
+        if Logging.Live_logging:
+            with open(_Log_path, "a") as log_file:
+                log_file.write(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                               f"*** End instance ***\n")
+        else:
+            if not _Log_file.closed:
+                _Log_file.write(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                                f"*** End instance ***\n")
+                _Log_file.close()
+                print(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                      f"Closed the current log file at {_Log_path}\n")
 
     @staticmethod
     def convert_level(level: int) -> str:
@@ -84,10 +87,30 @@ class Logging:
             return 'DEBUG'
 
     @staticmethod
-    def set_log_level(level: int):
+    def set_live_logging(live_logging: bool) -> None:
+        Logging.Live_logging = live_logging
+        if Logging.Live_logging and not _Log_file.closed:
+            _Log_file.close()
+        if Logging.Live_logging:
+            with open(_Log_path, "a") as log_file:
+                log_file.write(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                               f"Enabled live logging\n")
+        else:
+            if not _Log_file.closed:
+                _Log_file.write(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                                f"Disabled live logging\n")
+
+    @staticmethod
+    def set_log_level(level: int) -> None:
         Logging.Log_level = level
-        print(f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
-              f"Set log level to {Logging.convert_level(Logging.Log_level)}.")
+        temp = (f"[{datetime.now().strftime('%x %X')}][INFO][Logger] -> "
+                f"Set log level to {Logging.convert_level(level)}\n")
+        if Logging.Live_logging:
+            with open(_Log_path, "a") as log_file:
+                log_file.write(temp)
+        else:
+            if not _Log_file.closed:
+                _Log_file.write(temp)
 
     def _log(self, msg: str, level: int, data=None, newline=True, save=True) -> None:
         """
@@ -103,11 +126,16 @@ class Logging:
                 msg = (f"[{datetime.now().strftime('%x %X')}][{self.convert_level(level)}][{self.name}] -> "
                        f"{msg}{f' ({data})' if data else ''}")  # Format message
                 print(msg)  # Output message to console
-                if save and not _Log_file.closed:
-                    _Log_file.write(msg + '\n' if newline else msg)
-                if save and _Log_file.closed:
-                    print(f"[{datetime.now().strftime('%x %X')}][CRITICAL][Logger] -> "
-                          f"Attempted log on closed logfile at \"{_Log_path}\"")
+                if self.Live_logging:  # Save log on each message (slower, useful mode)
+                    if save:
+                        with open(_Log_path, "a") as log_file:
+                            log_file.write(msg + ('\n' if newline else ''))
+                else:  # File is already open (efficient mode)
+                    if save and not _Log_file.closed:
+                        _Log_file.write(msg + ('\n' if newline else ''))
+                    elif save and _Log_file.closed:
+                        print(f"[{datetime.now().strftime('%x %X')}][CRITICAL][Logger] -> "
+                              f"Attempted log on closed logfile at \"{_Log_path}\"")
             else:
                 return
         except (Exception, BaseException) as err:  # If logging failed

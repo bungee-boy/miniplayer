@@ -15,6 +15,7 @@ class ConfigLoader(Logging):
     _settings_file = 'settings.json'
     _default_config = {
         "LOGGING": 3,
+        "LIVE_LOGGING": True,
         "NODERED_IP": "",
         "NODERED_PORT": 1880,
         "NODERED_USER": "",
@@ -46,6 +47,7 @@ class ConfigLoader(Logging):
         self._setting = {}
         self.load_config()  # Load config
 
+        Logging.set_live_logging(self._conf['LIVE_LOGGING'])
         Logging.set_log_level(self._conf['LOGGING'])
         self.Node_red_ip = self._conf['NODERED_IP']
         self.Node_red_port = self._conf['NODERED_PORT']
