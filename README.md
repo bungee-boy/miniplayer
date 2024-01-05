@@ -75,11 +75,11 @@ Once you have an account, create an API key and paste the http link into the Ope
 Your account services page should look like this: **(Make sure you sign up for the free plan!)**\
 ![Screenshot example of OpenWeatherMap services page](/docs/images/OpenWeatherMap.png)\
 \
-The Local Weather flow also requires the [/Node-RED/weather_icons](/Node-RED/)
+The Local Weather flow also requires the [/Node-RED/weather_icons](/node_red/)
 folder to be copied to the Node-RED user folder.\
 This folder contains the weather icons that are sent to the miniplayer(s) from Node-RED.
 **It does not need to be installed on the miniplayers, only where Node-RED is running!**\
-For example, if Node-RED is running on linux, the [weather_icons](/Node-RED/weather_icons) folder should be copied to
+For example, if Node-RED is running on linux, the [weather_icons](/node_red/weather_icons) folder should be copied to
 `/home/nodered/weather_icons` by default.\
 (If your Node-RED is located elsewhere, or you would like to change where the folder is located,\
 edit the template node under the WEATHER section in Node-RED.)
