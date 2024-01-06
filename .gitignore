@@ -4,5 +4,6 @@ tests/
 log/
 temp/
 venv/
+playlists/
 settings.json
 config.json
