@@ -239,7 +239,7 @@ class BACKLIGHT(Window):
         elif Conf.Backlight == 1:  # Software dimming
             self.brightness = Conf.Min_brightness if self.brightness < Conf.Min_brightness else self.brightness  # Limit
             self.software_dim.set_alpha(255 - round(self.brightness / 100 * 255))
-        self.info(f'Set brightness to {self.brightness}')
+        self.info(f"Set brightness to {self.brightness}")
 
     def stop(self):
         self.set(0)
@@ -460,7 +460,7 @@ class SETTINGS(Window):
         surf.blit(*render_text('Close', 35, bold=True,
                                midleft=(self._data['close'].right + temp, self._data['close'].centery)))
         # MQTT INFO
-        surf.blit(*render_text(f'Connection: {Conf.Mqtt_ip}   Username: {Mqtt.mac_address}', 30, bold=True,
+        surf.blit(*render_text(f"Connection: {Conf.Mqtt_ip}   Username: {Mqtt.mac_address}", 30, bold=True,
                                midbottom=(CENTER[0], HEIGHT - 10)))
 
         if (not Conf.Touchscreen and not pg.mouse.get_pressed()[0] or
@@ -504,7 +504,7 @@ class MQTT(Window):
         self.subscribed = {}
         self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_reconnect
         self._mqtt = mqtt_client.Client(self.mac_address)
-        self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
+        self._mqtt.will_set(f"/miniplayer/connection/{self.mac_address}", payload='disconnected')
         self._mqtt.on_message = self._global_response
         self._mqtt.loop_start()
         self.reconnect_pending = not self.connect()  # If not connected on boot, set to start reconnect.
@@ -531,8 +531,8 @@ class MQTT(Window):
             self._mqtt.reinitialise(self.mac_address)
             if Conf.Mqtt_user and Conf.Mqtt_pass:  # If username and password
                 self._mqtt.username_pw_set(Conf.Mqtt_user, Conf.Mqtt_pass)
-                self.debug(f'Set credentials: {Conf.Mqtt_user}, {Conf.Mqtt_pass}')
-            self._mqtt.will_set(f'/miniplayer/connection/{self.mac_address}', payload='disconnected')
+                self.debug(f"Set credentials: {Conf.Mqtt_user}, {Conf.Mqtt_pass}")
+            self._mqtt.will_set(f"/miniplayer/connection/{self.mac_address}", payload='disconnected')
             self._mqtt.on_message = self._global_response
             self._mqtt.loop_start()
             self.info(f"Connecting to '{Conf.Mqtt_ip}' with username '{self.mac_address}'")
@@ -546,7 +546,7 @@ class MQTT(Window):
                 while not self._mqtt.is_connected():  # Wait for MQTT to connect
                     pg.time.wait(250)
                     if round(timer() - temp, 2) >= 10:  # Timeout after 10s
-                        self.err(f'Connection to {Conf.Mqtt_ip} failed: Timed out', data=f'username={self.mac_address}')
+                        self.err(f"Connection to {Conf.Mqtt_ip} failed: Timed out", data=f"username={self.mac_address}")
                         Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                         pg.time.wait(1500)
                         if ani:
@@ -554,14 +554,14 @@ class MQTT(Window):
                         return False
 
             except Exception as err:  # If failure to connect
-                self.err(f'Connection to {Conf.Mqtt_ip} failed: {err}', data=f'username={self.mac_address}')
+                self.err(f"Connection to {Conf.Mqtt_ip} failed: {err}", data=f"username={self.mac_address}")
                 Loading_ani.msg, Loading_ani.msg_colour = 'Connection Failed!', Colour['red']
                 pg.time.wait(1500)
                 if ani:
                     Loading_ani.stop()
                 return False
 
-            self.send(f'/miniplayer/connection/{self.mac_address}', 'connected')  # If connected
+            self.send(f"/miniplayer/connection/{self.mac_address}", 'connected')  # If connected
             self.connected = True
             self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_reconnect
             self._mqtt.on_disconnect = self._set_reconnect
@@ -574,7 +574,7 @@ class MQTT(Window):
 
     def disconnect(self):
         if self.connected or self._mqtt.is_connected():
-            self.send(f'/miniplayer/connection/{self.mac_address}', 'disconnected')
+            self.send(f"/miniplayer/connection/{self.mac_address}", 'disconnected')
             self.unsubscribe(None, unsub_all=True)
             self.connected = False
 
@@ -593,9 +593,9 @@ class MQTT(Window):
             if self.connected:
                 break
             else:
-                self.info(f'Waiting for {convert_s(retry_delay)}s')
+                self.info(f"Waiting for {convert_s(retry_delay)}s")
                 for temp in range(0, round(retry_delay)):
-                    Loading_ani.msg = f'Reconnecting (retry in {convert_s(retry_delay - temp)})'
+                    Loading_ani.msg = f"Reconnecting (retry in {convert_s(retry_delay - temp)})"
                     pg.time.wait(1000)
                 if retry_delay < 1800:  # Cap at half an hour between attempts
                     retry_delay *= 2
@@ -659,7 +659,7 @@ class MQTT(Window):
 
 
 class LOCALWEATHER(Window):
-    _mqtt_active = f'/miniplayer/weather/local/active/{MQTT.mac_address}'
+    _mqtt_active = f"/miniplayer/weather/local/active/{MQTT.mac_address}"
     _mqtt_response = '/miniplayer/weather/local/response'
 
     def __init__(self):
@@ -726,11 +726,11 @@ class LOCALWEATHER(Window):
             self.icon = self.icon, self.icon.get_rect(topright=(CENTER[0] - 30, 50))
         except Exception or BaseException as err:
             self.handle(err)
-            self.err('Failed to load icon', data=f'id={icon}')
+            self.err('Failed to load icon', data=f"id={icon}")
             self.icon = Img.img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
         except:
             print('Unhandled exception -> LOCALWEATHER.get_icon()')
-            self.err('Failed to load icon', data=f'id={icon}')
+            self.err('Failed to load icon', data=f"id={icon}")
             self.icon = Img.img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
 
     def receive(self, client, data, message):
@@ -774,7 +774,7 @@ class LOCALWEATHER(Window):
                 self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = f'ERR: {err}'
+                    self.timestamp = f"ERR: {err}"
                 self._load_default()
             except:
                 self.err('MQTT receive error -> unknown')
@@ -839,11 +839,11 @@ class LOCALWEATHER(Window):
 
 
 class SPOTIFY(Window):
-    _mqtt_active = f'/miniplayer/spotify/active/{MQTT.mac_address}'
+    _mqtt_active = f"/miniplayer/spotify/active/{MQTT.mac_address}"
     _mqtt_action = '/miniplayer/spotify/action'
     _mqtt_response = '/miniplayer/spotify/response'
     _pending_action_length = 12000
-    _playlist_dir = f"{folder()}temp{folder()}playlists"
+    _playlist_dir = "playlists"
 
     def __init__(self):
         super().__init__('Spotify')
@@ -937,10 +937,10 @@ class SPOTIFY(Window):
                 surf = pg.transform.smoothscale(pg.image.load(io.BytesIO(response.content)), (140, 140))
                 return surf
             except:
-                self.err(f'Failed to load playlist image (url={url})')
+                self.err(f"Failed to load playlist image (url={url})")
                 return pg.surface.Surface((140, 140))
         else:
-            self.err(f'Failed to get playlist image (code={response.status_code}, url={url})')
+            self.err(f"Failed to get playlist image (code={response.status_code}, url={url})")
             return pg.surface.Surface((140, 140))
 
     def _load_default(self):
@@ -1044,7 +1044,8 @@ class SPOTIFY(Window):
     def _get_playlists(self) -> bool:
         self.debug('Fetching playlists...')
         try:  # Request data from Node-RED
-            response = requests.get(f'http://{Conf.Node_red_ip}:{Conf.Node_red_port}/spotify/playlists', timeout=10)
+            response = requests.get(f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}"
+                                    f"{'/endpoint' if Conf.Node_red_ha else ''}/spotify/playlists", timeout=10)
         except Exception as err:
             self._playlists = []
             self.warn('Playlist fetch failed', data=err)
@@ -1079,17 +1080,16 @@ class SPOTIFY(Window):
                     try:
                         os.mkdir(self._playlist_dir)
                         self.info(f"Created new directory at \"{self._playlist_dir}\"")
-                    except PermissionError:
-                        self.err(f"Failed to create folder \"{self._playlist_dir}\"", data="reason: PermissionError")
+                    except Exception as err:
+                        self.handle(err, data=f"cause: Creating playlists folder, location: \"{self._playlist_dir}\"")
                     except:
                         self.err(f"Failed to create folder \"{self._playlist_dir}\"", data="reason: UnknownError")
                 try:
                     for file in os.listdir(self._playlist_dir):
                         cache.update({
                             file.replace('.png', ''): pg.image.load_extended(self._playlist_dir + file, 'png')})
-                except PermissionError:
-                    self.err(f"Failed to load playlist image from \"{self._playlist_dir}\"",
-                             data="reason: PermissionError")
+                except Exception as err:
+                    self.handle(err, data=f"cause: Loading playlist image, location: \"{self._playlist_dir}\"")
                 except:
                     self.err(f"Failed to load playlist image from \"{self._playlist_dir}\"",
                              data="reason: UnknownError")
@@ -1097,17 +1097,21 @@ class SPOTIFY(Window):
                 for playlist in self._playlists:
                     if playlist['id'] not in cache:
                         playlist['images'] = self._fetch_image(playlist['images'][0]['url'])  # Load img
-                        if os.path.isdir('playlists'):
+                        if os.path.isdir(self._playlist_dir):
                             try:
                                 pg.image.save_extended(playlist['images'], f"{playlist['id']}.png", 'png')
-                                shutil.move(f"{playlist['id']}.png", self._playlist_dir + playlist['id'] + ".png")
+                                shutil.move(f"{playlist['id']}.png",
+                                            self._playlist_dir + folder() + playlist['id'] + ".png")
                                 self.debug("Cached image", data="id:" + playlist['id'])
-                            except PermissionError:
-                                self.err("Failed to load new playlist image",
-                                         data="reason: PermissionError")
+                            except Exception as err:
+                                self.handle(err,
+                                            data=f"cause: Caching playlist image, location: \"{self._playlist_dir}\"")
                             except:
-                                self.err("Failed to load new playlist image",
-                                         data="reason: UnknownError")
+                                self.err("Failed to cache playlist image",
+                                         data=f"reason: UnknownError, location: \"{self._playlist_dir}\"")
+                        else:
+                            self.err("Failed to cache playlist image",
+                                     data=f"reason: FileNotFoundError, location: \"{self._playlist_dir}\"")
                     else:
                         playlist['images'] = cache[playlist['id']]
                         self.debug("Loaded playlist cache", data="id:" + playlist['id'])
@@ -1120,16 +1124,20 @@ class SPOTIFY(Window):
                 self.handle(err, data="cause: Playlist ordering failed")
                 return False
         else:
+            temp = (f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}"
+                    f"{'/endpoint' if Conf.Node_red_ha else ''}/spotify/playlists")
             self._playlists = []
             self.err("Playlist fetch failed",
                      data=f"code={response.status_code}, "
-                          f"url={f'http://{Conf.Node_red_ip}:{Conf.Node_red_port}/spotify/playlists'})")
+                          f"url={temp})")
             return False
 
     def _update_playlists(self, uid: str) -> bool:
         self.debug("Fetching new playlist",
-                   data=f"url: http://{Conf.Node_red_ip}:{Conf.Node_red_port}/spotify/playlists?id={uid}")
-        response = requests.get(f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}/spotify/playlists?id={uid}")
+                   data=f"url: http://{Conf.Node_red_ip}:{Conf.Node_red_port}"
+                        f"{'/endpoint' if Conf.Node_red_ha else ''}/spotify/playlists?id={uid}")
+        response = requests.get(f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}"
+                                f"{'/endpoint' if Conf.Node_red_ha else ''}/spotify/playlists?id={uid}")
         if response.status_code == 200:  # Fetch playlist
             try:
                 playlist = json.load(io.BytesIO(response.content))  # Decode response
@@ -1163,7 +1171,8 @@ class SPOTIFY(Window):
     def _liked(self, track_id: str, state=None):
         try:  # Request data from Node-RED
             self.debug("Requesting liked song status", data="id: " + track_id)
-            request = (f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}/spotify/saved?id={track_id}" +
+            request = (f"http://{Conf.Node_red_ip}:{Conf.Node_red_port}"
+                       f"{'/endpoint' if Conf.Node_red_ha else ''}/spotify/saved?id={track_id}" +
                        (f"&state={state}" if state is not None else ''))
             response = requests.get(request, timeout=10)
         except Exception as err:
@@ -1545,14 +1554,14 @@ class SPOTIFY(Window):
                         self.value['device']['volume_percent'] != self._prev_value or
                         'shuffle' in temp and self.value['shuffle_state'] != self._prev_value or
                         'repeat' in temp and self.value['repeat_state'] != self._prev_value):
-                    self.info(f'{temp[0].title()} confirmed')
+                    self.info(f"{temp[0].title()} confirmed")
                     set_info(f"{temp[0].title().replace('_', ' ')} confirmed")
                     self._action_time = 0
                     self._prev_value = None
                     self._pending_action = {}
 
                 if self._action_time and pg.time.get_ticks() >= self._action_time:  # Action timed out
-                    self.err(f'{self._pending_action} timed out')
+                    self.err(f"{self._pending_action} timed out")
                     self._timeout_time = pg.time.get_ticks() + 5000
                     self._action_time = 0
                     self._prev_value = None
@@ -1560,7 +1569,7 @@ class SPOTIFY(Window):
 
 
 class OCTOPRINT(Window):
-    _mqtt_active = f'/miniplayer/octoprint/active/{MQTT.mac_address}'
+    _mqtt_active = f"/miniplayer/octoprint/active/{MQTT.mac_address}"
 
     def __init__(self):
         super().__init__('OctoPrint')
@@ -1627,7 +1636,7 @@ class OCTOPRINT(Window):
                 self.value['state'] = msg['state']
                 self.printing = self.value['state']['flags']['printing']
                 self._data['state'] = render_text(
-                    f'{self.value["state"]["text"]}: {round(self.value["progress"]["completion"])}%', 25, bold=True,
+                    f"{self.value['state']['text']}: {round(self.value['progress']['completion'])}%", 25, bold=True,
                     topleft=(15, Menu.left[1].bottom + 15))
                 self._data['state_bar'] = render_bar((self._data['state'][1].width, 10),
                                                      round(self.value['progress']['completion']), 0, 100,
@@ -1641,7 +1650,7 @@ class OCTOPRINT(Window):
                 self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = f'ERR: {err}'
+                    self.timestamp = f"ERR: {err}"
                 self._load_default()
             except:
                 self.err('MQTT receive error (state) -> unknown')
@@ -1663,7 +1672,7 @@ class OCTOPRINT(Window):
                 self.handle(err)
                 if self._timestamp_color != Colour['red']:
                     self._timestamp_color = Colour['red']
-                    self.timestamp = f'ERR: {err}'
+                    self.timestamp = f"ERR: {err}"
                 self._load_default()
             except:
                 self.err('MQTT receive error (pos) -> unknown')
@@ -1738,9 +1747,9 @@ def convert_s(sec: int) -> str:
         minutes = sec // 60
         sec -= minutes * 60
         if sec < 10:
-            sec = f'0{sec}'
+            sec = f"0{sec}"
     elif sec < 10:
-        sec = f'0{sec}'
+        sec = f"0{sec}"
     if minutes >= 60:
         hours = minutes // 60
         minutes -= hours * 60
@@ -1898,7 +1907,7 @@ def main():
                 # update_time = convert_ms(update_time)
                 # draw_time = timer()
                 Current_window.draw()
-                # print(f'Update: {update_time}ms, Draw: {update_ms(draw_time)}ms')
+                # print(f"Update: {update_time}ms, Draw: {update_ms(draw_time)}ms")
 
                 if Settings.active:  # SETTINGS
                     Menu.allow_screensaver = False
@@ -1944,7 +1953,7 @@ def main():
 
         Prev_mouse_pos = Mouse_pos
         pg.display.update()
-        # print(f'Mainloop: {convert_ms(mainloop_time)}ms')
+        # print(f"Mainloop: {convert_ms(mainloop_time)}ms")
 
 
 def quit_all():

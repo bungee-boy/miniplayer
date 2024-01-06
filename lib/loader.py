@@ -49,6 +49,7 @@ class ConfigLoader(Logging):
 
         Logging.set_live_logging(self._conf['LIVE_LOGGING'])
         Logging.set_log_level(self._conf['LOGGING'])
+        self.Node_red_ha = self._conf['NODERED_HA']
         self.Node_red_ip = self._conf['NODERED_IP']
         self.Node_red_port = self._conf['NODERED_PORT']
         self.Node_red_user = str(hex(get_mac())) if not self._conf['NODERED_USER'] else self._conf['NODERED_USER']
