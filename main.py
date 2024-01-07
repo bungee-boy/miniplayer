@@ -1236,10 +1236,15 @@ class SPOTIFY(Window):
                                 self._update_playlists(msg['context']['uri'])  # Fetch new
                             try:
                                 self.debug("Loading existing playlist")
-                                self._active_playlist = self._playlists[Settings.value[
-                                    'Playlist Order'].index(msg['context']['uri'])]  # Set current
-                            except:
-                                self.err("Loading existing playlist failed", data="context: " + msg['context'])
+                                try:
+                                    self._active_playlist = self._playlists[Settings.value[
+                                        'Playlist Order'].index(msg['context']['uri'])]  # Set current
+                                except Exception as err:
+                                    self.handle(err, data="cause: Loading existing playlist from settings")
+                            except Exception as err:
+                                self.handle(err,
+                                            data="cause: Loading existing playlist, context: " + str(msg['context']))
+                                self.err("Loading existing playlist failed", data=f"context: {msg['context']}")
                                 self._active_playlist = None
                         else:
                             self._active_playlist = None
