@@ -502,7 +502,7 @@ class MQTT(Window):
         self.connected = False
         self.retained = {}  # {'topic': response()}
         self.subscribed = {}
-        self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_reconnect
+        self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_auto_reconnect
         self._mqtt = mqtt_client.Client(self.mac_address)
         self._mqtt.will_set(f"/miniplayer/connection/{self.mac_address}", payload='disconnected')
         self._mqtt.on_message = self._global_response
@@ -515,7 +515,7 @@ class MQTT(Window):
         self.reconnect_pending = True
 
     def _global_response(self, client, data, message):
-        self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_reconnect  # Update last msg time
+        self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_auto_reconnect  # Update last msg time
         if message.topic == self._mqtt_window and Settings.value['WINDOW_CHANGE']:  # If topic is to change windows
             pass
         else:
@@ -563,7 +563,7 @@ class MQTT(Window):
 
             self.send(f"/miniplayer/connection/{self.mac_address}", 'connected')  # If connected
             self.connected = True
-            self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_reconnect
+            self._last_msg_time = pg.time.get_ticks() + Conf.Mqtt_auto_reconnect
             self._mqtt.on_disconnect = self._set_reconnect
             Loading_ani.msg, Loading_ani.msg_colour = 'Connected!', Colour['green']
             pg.time.wait(1500)
@@ -612,7 +612,7 @@ class MQTT(Window):
             topics = [topics]
         for topic in topics:
             if topic not in self.subscribed:
-                self._mqtt.subscribe(topic)
+                self._mqtt.subscribe(topic, qos=Conf.Mqtt_qos)
                 if retain:
                     self.retained.update({topic: response})
                 self.subscribed.update({topic: response})
@@ -649,7 +649,7 @@ class MQTT(Window):
 
     def send(self, topic: str, payload: dict or str):
         msg = str(payload).replace("'", "\"")
-        self._mqtt.publish(topic, payload=msg)
+        self._mqtt.publish(topic, payload=msg, qos=Conf.Mqtt_qos)
         self.debug(f"Sent {msg} to {topic}")
 
     def update(self):
@@ -664,28 +664,30 @@ class LOCALWEATHER(Window):
 
     def __init__(self):
         super().__init__('Local Weather')
+        temp = 'assets/weather/'
         Img.img.update({'weather': {
-            'storm': pg.transform.smoothscale(Img.load('assets/weather/storm.png', (100, 100)), (300, 300)),
-            'storm_2': pg.transform.smoothscale(Img.load('assets/weather/storm_2.png', (100, 100)), (300, 300)),
-            'storm_3': pg.transform.smoothscale(Img.load('assets/weather/storm_3.png', (100, 100)), (300, 300)),
-            'rain': pg.transform.smoothscale(Img.load('assets/weather/rain.png', (100, 100)), (300, 300)),
-            'rain_2': pg.transform.smoothscale(Img.load('assets/weather/rain_2.png', (100, 100)), (300, 300)),
-            'rain_3': pg.transform.smoothscale(Img.load('assets/weather/rain_3.png', (100, 100)), (300, 300)),
-            'rain_4': pg.transform.smoothscale(Img.load('assets/weather/rain_4.png', (100, 100)), (300, 300)),
-            'rain_5': pg.transform.smoothscale(Img.load('assets/weather/rain_5.png', (100, 100)), (300, 300)),
-            'hail': pg.transform.smoothscale(Img.load('assets/weather/hail.png', (100, 100)), (300, 300)),
-            'snow': pg.transform.smoothscale(Img.load('assets/weather/snow.png', (100, 100)), (300, 300)),
-            'snow_2': pg.transform.smoothscale(Img.load('assets/weather/snow_2.png', (100, 100)), (300, 300)),
-            'snow_3': pg.transform.smoothscale(Img.load('assets/weather/snow_3.png', (100, 100)), (300, 300)),
-            'mist': pg.transform.smoothscale(Img.load('assets/weather/mist.png', (100, 100)), (300, 300)),
-            'dust': pg.transform.smoothscale(Img.load('assets/weather/dust.png', (100, 100)), (300, 300)),
-            'haze': pg.transform.smoothscale(Img.load('assets/weather/haze.png', (100, 100)), (300, 300)),
-            'fog': pg.transform.smoothscale(Img.load('assets/weather/fog.png', (100, 100)), (300, 300)),
-            'wind': pg.transform.smoothscale(Img.load('assets/weather/wind.png', (100, 100)), (300, 300)),
-            'tornado': pg.transform.smoothscale(Img.load('assets/weather/tornado.png', (100, 100)), (300, 300)),
-            'sun': pg.transform.smoothscale(Img.load('assets/weather/sun.png', (100, 100)), (300, 300)),
-            'cloud_2': pg.transform.smoothscale(Img.load('assets/weather/cloud_2.png', (100, 100)), (300, 300)),
-            'cloud': pg.transform.smoothscale(Img.load('assets/weather/cloud.png', (100, 100)), (300, 300))}})
+            'storm': pg.transform.smoothscale(Img.load(temp + 'storm.png', (100, 100)), (300, 300)),
+            'storm_2': pg.transform.smoothscale(Img.load(temp + 'storm_2.png', (100, 100)), (300, 300)),
+            'storm_3': pg.transform.smoothscale(Img.load(temp + 'storm_3.png', (100, 100)), (300, 300)),
+            'rain': pg.transform.smoothscale(Img.load(temp + 'rain.png', (100, 100)), (300, 300)),
+            'rain_2': pg.transform.smoothscale(Img.load(temp + 'rain_2.png', (100, 100)), (300, 300)),
+            'rain_3': pg.transform.smoothscale(Img.load(temp + 'rain_3.png', (100, 100)), (300, 300)),
+            'rain_4': pg.transform.smoothscale(Img.load(temp + 'rain_4.png', (100, 100)), (300, 300)),
+            'rain_5': pg.transform.smoothscale(Img.load(temp + 'rain_5.png', (100, 100)), (300, 300)),
+            'hail': pg.transform.smoothscale(Img.load(temp + 'hail.png', (100, 100)), (300, 300)),
+            'snow': pg.transform.smoothscale(Img.load(temp + 'snow.png', (100, 100)), (300, 300)),
+            'snow_2': pg.transform.smoothscale(Img.load(temp + 'snow_2.png', (100, 100)), (300, 300)),
+            'snow_3': pg.transform.smoothscale(Img.load(temp + 'snow_3.png', (100, 100)), (300, 300)),
+            'mist': pg.transform.smoothscale(Img.load(temp + 'mist.png', (100, 100)), (300, 300)),
+            'dust': pg.transform.smoothscale(Img.load(temp + 'dust.png', (100, 100)), (300, 300)),
+            'haze': pg.transform.smoothscale(Img.load(temp + 'haze.png', (100, 100)), (300, 300)),
+            'fog': pg.transform.smoothscale(Img.load(temp + 'fog.png', (100, 100)), (300, 300)),
+            'wind': pg.transform.smoothscale(Img.load(temp + 'wind.png', (100, 100)), (300, 300)),
+            'tornado': pg.transform.smoothscale(Img.load(temp + 'tornado.png', (100, 100)), (300, 300)),
+            'sun': pg.transform.smoothscale(Img.load(temp + 'sun.png', (100, 100)), (300, 300)),
+            'moon': pg.transform.smoothscale(Img.load(temp + 'moon.png', (100, 100)), (300, 300)),
+            'cloud_2': pg.transform.smoothscale(Img.load(temp + 'cloud_2.png', (100, 100)), (300, 300)),
+            'cloud': pg.transform.smoothscale(Img.load(temp + 'cloud.png', (100, 100)), (300, 300))}})
         self._snow = False
         self.icon = pg.surface.Surface((128, 128)), pg.rect.Rect((70, 40, 128, 128))
         self.value = {}
@@ -724,12 +726,10 @@ class LOCALWEATHER(Window):
         try:
             self.icon = Img.img['weather'][icon]
             self.icon = self.icon, self.icon.get_rect(topright=(CENTER[0] - 30, 50))
-        except Exception or BaseException as err:
-            self.handle(err)
-            self.err('Failed to load icon', data=f"id={icon}")
+        except Exception as err:
+            self.handle(err, data=f"cause: Loading icon, id: {icon}")
             self.icon = Img.img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
         except:
-            print('Unhandled exception -> LOCALWEATHER.get_icon()')
             self.err('Failed to load icon', data=f"id={icon}")
             self.icon = Img.img['weather']['cloud'], pg.rect.Rect((CENTER[0] - 30 - 300, 50, 300, 300))
 
@@ -1900,6 +1900,8 @@ def main():
                     Mqtt.disconnect() if Mqtt.connected else Mqtt.connect()
                 elif event.key == pg.K_r:
                     Mqtt.reconnect_pending = True
+                elif event.key == pg.K_s:
+                    pg.image.save(Display, "screenshot.png")
 
         Mouse_pos = pg.mouse.get_pos()
 
