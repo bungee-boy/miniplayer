@@ -200,8 +200,8 @@ class LoadingAni(Window):
 
 
 class BACKLIGHT(Window):
-    _mqtt_request = '/miniplayer/backlight/request'
-    _mqtt_response = '/miniplayer/backlight'
+    _mqtt_request = 'miniplayer/backlight/request'
+    _mqtt_response = 'miniplayer/backlight'
     pin = Conf.Backlight_pin
     freq = 500
 
@@ -370,8 +370,8 @@ class SETTINGS(Window):
                                                                self._data['device_info'].centery + 100))})
         self._data.update({'reconnect': surf.get_rect(midleft=(self._data['playlists'].left,
                                                                self._data['playlists'].centery + 100))})
-        self._data.update({'close': surf.get_rect(midleft=(self._data['reconnect'].left,
-                                                           self._data['reconnect'].centery + 100))})
+        self._data.update({'quit': surf.get_rect(midleft=(self._data['reconnect'].left,
+                                                          self._data['reconnect'].centery + 100))})
         self.load()
 
     def load(self):
@@ -432,7 +432,6 @@ class SETTINGS(Window):
         surf.blit(Menu.settings[0], Menu.right[1])
 
         # screensaver = render_button(self.value['Screensaver'], midleft=(Menu.left[1].centerx + 50, 150))
-
         # device_info = render_button(self.value['Device Info'], midleft=(screensaver.left, screensaver.centery + 100))
         # playlists = render_button(Colour['grey'], midleft=(device_info.left, device_info.centery + 100))
         # reconnect = render_button(Colour['amber'], midleft=(playlists.left, playlists.centery + 100))
@@ -455,10 +454,10 @@ class SETTINGS(Window):
         surf.blit(Img.img['menu']['none'], self._data['reconnect'])
         surf.blit(*render_text('Reconnect', 35, bold=True,
                                midleft=(self._data['reconnect'].right + temp, self._data['reconnect'].centery)))
-        # CLOSE
-        surf.blit(Img.img['menu']['none'], self._data['close'])
-        surf.blit(*render_text('Close', 35, bold=True,
-                               midleft=(self._data['close'].right + temp, self._data['close'].centery)))
+        # QUIT
+        surf.blit(Img.img['menu']['none'], self._data['quit'])
+        surf.blit(*render_text('Quit', 35, bold=True,
+                               midleft=(self._data['quit'].right + temp, self._data['quit'].centery)))
         # MQTT INFO
         surf.blit(*render_text(f"Connection: {Conf.Mqtt_ip}   Username: {Mqtt.mac_address}", 30, bold=True,
                                midbottom=(CENTER[0], HEIGHT - 10)))
@@ -488,14 +487,14 @@ class SETTINGS(Window):
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
             self.active = False  # Close settings automatically
             Mqtt.reconnect()
-        elif self._data['close'].collidepoint(Mouse_pos):  # Close
+        elif self._data['quit'].collidepoint(Mouse_pos):  # Quit
             Button_cooldown = pg.time.get_ticks() + Button_cooldown_length
-            raise KeyboardInterrupt('Close button pressed')
+            raise KeyboardInterrupt('Quit button pressed')
 
 
 class MQTT(Window):
     mac_address = Conf.Node_red_user
-    _mqtt_window = '/miniplayer/window'
+    _mqtt_window = 'miniplayer/window'
 
     def __init__(self):
         super().__init__('MQTT')
@@ -659,8 +658,8 @@ class MQTT(Window):
 
 
 class LOCALWEATHER(Window):
-    _mqtt_active = f"/miniplayer/weather/local/active/{MQTT.mac_address}"
-    _mqtt_response = '/miniplayer/weather/local/response'
+    _mqtt_active = f"miniplayer/weather/local/active/{MQTT.mac_address}"
+    _mqtt_response = 'miniplayer/weather/local/response'
 
     def __init__(self):
         super().__init__('Local Weather')
@@ -839,11 +838,11 @@ class LOCALWEATHER(Window):
 
 
 class SPOTIFY(Window):
-    _mqtt_active = f"/miniplayer/spotify/active/{MQTT.mac_address}"
-    _mqtt_action = '/miniplayer/spotify/action'
-    _mqtt_response = '/miniplayer/spotify/response'
+    _mqtt_active = f"miniplayer/spotify/active/{MQTT.mac_address}"
+    _mqtt_action = 'miniplayer/spotify/action'
+    _mqtt_response = 'miniplayer/spotify/response'
     _pending_action_length = 12000
-    _playlist_dir = "playlists"
+    _playlist_dir = "playlists/"
 
     def __init__(self):
         super().__init__('Spotify')
@@ -961,6 +960,7 @@ class SPOTIFY(Window):
                       'skip_l': (pg.transform.flip(Img.img['spotify']['skip'][0], True, False),
                                  pg.transform.flip(Img.img['spotify']['skip'][1], True, False)),
                       'skip_r': Img.img['spotify']['skip'],
+                      'duration': pg.rect.Rect(0, 0, 50, 30),
                       'volume': {
                           'left': pg.rect.Rect(0, 0, 50, 50),
                           'right_1': pg.rect.Rect(0, 0, 50, 50),
@@ -995,6 +995,7 @@ class SPOTIFY(Window):
             'move_d': (pg.transform.rotate(self._data['play'][0], -90),
                        pg.transform.rotate(self._data['play'][1], -90)),
             'page': 0}})
+        # noinspection PyTypeChecker
         pg.transform.threshold(self._data['plist']['pause'], self._data['plist']['pause'],
                                search_color=(255, 255, 255), set_color=(24, 216, 97), inverse_set=True)
         pos = 30, 100, 140, 140, 10  # x, y, width, height, spacing
@@ -1258,8 +1259,10 @@ class SPOTIFY(Window):
 
                 msg['item']['name'] = self._shorten(msg['item']['name'])  # Format and convert values to look nice
                 msg['item']['duration_ms'] = int(msg['item']['duration_ms'])
-                msg['item'].update({'duration': convert_s(msg['item']['duration_ms'] // 1000)})
                 msg['progress_ms'] = int(msg['progress_ms'])
+                if not Settings.value['Duration']:
+                    msg['item']['duration_ms'] = msg['item']['duration_ms'] - msg['progress_ms']
+                msg['item'].update({'duration': convert_s(msg['item']['duration_ms'] // 1000)})
                 msg.update({'progress': convert_s(msg['progress_ms'] // 1000)})
                 msg['item']['album']['name'] = self._shorten(msg['item']['album']['name'])
                 msg['device']['name'] = msg['device']['name'].lower().title().replace("'S", "'s")
@@ -1366,8 +1369,10 @@ class SPOTIFY(Window):
             surf.blit(*bar)
             surf.blit(*render_text(self.value['progress'], 30, Colour['white'], bold=True,  # PROGRESS
                                    midright=(bar[1].left - 30, bar[1].centery + 1)))
-            surf.blit(*render_text(self.value['item']['duration'], 30, Colour['white'], bold=True,  # DURATION
-                                   midleft=(bar[1].right + 30, bar[1].centery + 1)))
+            temp = render_text(self.value['item']['duration'], 30, Colour['white'], bold=True,  # DURATION
+                               midleft=(bar[1].right + 30, bar[1].centery + 1))
+            self._data['duration'] = temp[1]  # Save rect to be able to press
+            surf.blit(*temp)
 
             bar = render_bar((300, 14), self.value['device']['volume_percent'], 0, 100,  # VOLUME BAR
                              midtop=(CENTER[0], bar[1].bottom + 45))
@@ -1522,8 +1527,10 @@ class SPOTIFY(Window):
                             'context' if self.value['repeat_state'] == 'off' else  # (Off, Context, Track)
                             'track' if self.value['repeat_state'] == 'context' else 'off']})
                         self._prev_value = self.value['repeat_state']
-                    elif self._data['far_right_2'].collidepoint(Mouse_pos) and self._liked_song is not None:  # Save
+                    elif self._data['far_right_2'].collidepoint(Mouse_pos) and self._liked_song is not None:  # Like
                         self._liked(self.value['item']['id'], state=False if self._liked_song else True)  # http
+                    elif self._data['duration'].collidepoint(Mouse_pos):
+                        Settings.value['Duration'] = not Settings.value['Duration']
                     elif (self._data['volume']['right_1'].collidepoint(Mouse_pos) and
                           self.value['device']['volume_percent'] > 0):  # Vol -
                         action.update({'volume_-': 0, 'params': [
@@ -1574,7 +1581,7 @@ class SPOTIFY(Window):
 
 
 class OCTOPRINT(Window):
-    _mqtt_active = f"/miniplayer/octoprint/active/{MQTT.mac_address}"
+    _mqtt_active = f"miniplayer/octoprint/active/{MQTT.mac_address}"
 
     def __init__(self):
         super().__init__('OctoPrint')
