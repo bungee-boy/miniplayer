@@ -1,9 +1,0 @@
-.idea/
-__pycache__/
-tests/
-log/
-temp/
-venv/
-playlists/
-settings.json
-config.json
