@@ -1,0 +1,7 @@
+.idea/
+__pycache__/
+tests/
+log/
+temp/
+settings.json
+config.json
