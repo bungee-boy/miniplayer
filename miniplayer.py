@@ -45,7 +45,7 @@ class Miniplayer:
 
         # Load and enable first window by default on start
         self._log.log("Loaded windows: " + str(list(self._windows.keys())), LogLevel.INF)
-        self.active_window_name = list(self._windows.keys())[0]  # Default to first window class
+        self.active_window_name = list(self._windows.keys())[1]  # Default to first window class
         self._windows[self.active_window_name].start()
 
     def load_window(self, name: str, window: type(WindowBase)):

@@ -1,0 +1,10 @@
+.idea/
+.venv/
+__pycache__/
+windows/__pycache__/
+plugins/__pycache__/
+log/
+temp/
+venv/
+settings.json
+config.json

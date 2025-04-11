@@ -76,7 +76,7 @@ class WindowBase(Log):
         Draws the window to the screen
         """
         self._Ui.background()
-        self._Ui.text(self.name, 20, center=(self._Ui.Center, 25))
+        self._Ui.text(self.name, 20)#, center=(self._Ui.Center, 25))
 
     def update(self) -> None:
         """
