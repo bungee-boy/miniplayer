@@ -20,7 +20,7 @@ class InputMethod(Enum):
 
 
 class Ui:
-    _Assets = ".\\assets\\ui\\"
+    _Assets = "./assets/ui/"
     _Fonts = {}
     _Images = {}
 
