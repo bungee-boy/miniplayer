@@ -27,7 +27,7 @@ class Ui:
 
     def __init__(self, size: tuple[int, int], flags=0, display=0):
         if system() == "Linux":
-            #pg.mouse.set_visible(False)
+            pg.mouse.set_visible(False)
             flags |= pg.FULLSCREEN
 
         self.Display = pg.display.set_mode(size, flags=flags, display=display)
