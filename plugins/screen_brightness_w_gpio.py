@@ -1,6 +1,6 @@
 from plugin import *  # Plugin base class
 from pygame import surface
-import RPi.GPIO
+import RPi.GPIO as GPIO
 
 class ScreenBrightnessGpio(PluginBase):
     _mqtt_bl_set = "miniplayer/plugin/backlight/set"
@@ -8,25 +8,31 @@ class ScreenBrightnessGpio(PluginBase):
 
     def __init__(self):
         super().__init__("Screen Brightness (gpio)")
-        self.bl_pin = 16
+        self.en_pin = 25
+        self.on_state = "ON"  # Set to "OFF" to invert GPIO
 
     def _enable(self):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.en_pin, GPIO.OUT)
+
         self._Mqtt.sub((self._mqtt_bl_set, self._mqtt_bl_brightness), self._receive)
 
     def _disable(self):
+        GPIO.cleanup(self.en_pin)
+
         self._Mqtt.unsub((self._mqtt_bl_set, self._mqtt_bl_brightness))
 
     def _receive(self, client, userdata, msg) -> None:
         self.log("Received a message!", LogLevel.INF)
 
         if msg.topic == self._mqtt_bl_set:  # Turn on / off GPIO
-            RPi.GPIO.output(self.bl_pin, msg.payload.decode() == "ON")
+            GPIO.output(self.en_pin, GPIO.HIGH if msg.payload.decode() == self.on_state else GPIO.LOW)
             self.log("Set GPIO to " + msg.payload.decode(), LogLevel.INF)
             return
 
         elif msg.topic == self._mqtt_bl_brightness:  # Set backlight brightness
             msg = json.loads(msg.payload.decode())  # Convert string response to dict (json)
-            RPi.GPIO.output(self.bl_pin, True)
+            GPIO.output(self.en_pin, True)
             self._Ui.set_brightness(msg)
             self.log("Set brightness to " + str(msg), LogLevel.INF)
             return
