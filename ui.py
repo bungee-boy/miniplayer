@@ -32,8 +32,8 @@ class Ui:
         Ui._Images['background'] = Ui.load_image(Ui._Assets + 'background.jpg', keep_alpha=False)
 
         # Screen anchor variables
-        self.Width = self.Display.get_width()
-        self.Height = self.Display.get_height()
+        self.Width = size[0]
+        self.Height = size[1]
         self.Center = self.Width / 2, self.Height / 2
         self.Top = 40
         self.Bottom = self.Height - 20
