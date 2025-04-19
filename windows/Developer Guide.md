@@ -1,7 +1,20 @@
 ﻿# How to make a window
 
 ## Index
-1. [Getting started](#Getting started)
+1. [What is a window?](#What is a window?)
+2. [Getting started](#Getting started)
+
+## What is a window?
+
+A window is a modular panel of sorts that should display some kind of information to the user.<br>
+They should be fully enclosed and include all data and resources needed to function within them,<br>
+some may include usages of shared classes, such as the UI or Settings, which are provided to all windows.<br>
+
+For example, the included spotify window contains:
+* Networking to and from Node-RED
+* Loading of assets, settings and temporary files
+* Animations and dynamic UI
+* Decoding MQTT messages
 
 ## Getting started
 
@@ -15,7 +28,7 @@ from window import *  # Window base class
 
 class MyWindow(WindowBase):
     def __init__(self):
-        super().__init__('My Window's Name')
+        super().__init__("My Window's Name")
 ```
 
 By doing this, WindowBase provides you with a Mqtt class under `_Mqtt`, and a user interface class under `_Ui`

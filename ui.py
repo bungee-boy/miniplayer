@@ -46,8 +46,22 @@ class Ui:
         self.prev_mouse_pos = 0, 0
 
         self._info = '', 'Grey', 0  # Txt, Col, Time
+        self._curr_brightness = 255
+        self._brightnessSurf = pg.surface.Surface((self.Width, self.Height)).convert_alpha()
 
-    def clear(self):
+        self.set_brightness(self._curr_brightness)
+
+    def set_brightness(self, brightness: int) -> None:
+        self._curr_brightness = brightness
+        self._brightnessSurf.set_alpha(255 - self._curr_brightness)
+
+    def get_brightness(self) -> int:
+        return self._curr_brightness
+
+    def apply_brightness(self) -> None:
+        self.Display.blit(self._brightnessSurf, (0, 0))
+
+    def clear(self) -> None:
         self.Display.fill(Colour['Black'])
 
     def background(self, txt=False) -> None:
@@ -208,7 +222,7 @@ class Ui:
         if not self._info[0] or force:  # If not showing another message
             self._info = txt, colour, pg.time.get_ticks() + timeout if timeout != 0 else timeout
 
-    def clear_info(self):
+    def clear_info(self) -> None:
         self._info = "", 'Grey', 0
 
     def get_info(self) -> tuple[str, str, int]:
@@ -219,6 +233,8 @@ class Ui:
             return rect.collidepoint(self.mouse_pos) and pg.mouse.get_pressed()[0]
         elif self.Input_method == InputMethod.Touch:  # Touchscreen
             return rect.collidepoint(self.mouse_pos) and self.mouse_pos != self.prev_mouse_pos
+        else:
+            return False
 
     @staticmethod
     def add_colours(colours: dict) -> None:

@@ -32,13 +32,6 @@ class WindowBase(Log):
         """
         pass
 
-    def _update(self) -> None:
-        """
-        To be overwritten by subclasses.
-        Called by update()
-        """
-        pass
-
     def _receive(self, client, userdata, msg) -> None:
         """
         To be overwritten by subclasses.\n

@@ -2,7 +2,10 @@
 
 import importlib  # Used to import windows dynamically
 import windows  # Window subdirectory
+import plugins  # Plugin subdirectory
+
 from window import *
+from plugin import *
 
 class Miniplayer:
     def __init__(self):
@@ -16,15 +19,31 @@ class Miniplayer:
 
         timestamp = pg.time.get_ticks()
 
+        # LOAD MQTT
         self._loading_info("mqtt")
         self._Mqtt.connect()
 
+        # LOAD PLUGINS
+        PluginBase.set_mqtt(self._Mqtt)
+        PluginBase.set_ui(self._Ui)
+
+        self._plugins = {}
+        for module_name in plugins.__all__:
+            module = importlib.import_module("plugins." + module_name)
+
+            # Dynamically load plugins from the plugin folder
+            for plugin_name in dir(module):
+                class_ref = getattr(module, plugin_name)
+                if isinstance(class_ref, type) and issubclass(class_ref, PluginBase) and class_ref is not PluginBase:  # Only load subclasses of PluginBase
+                    self.load_plugin(class_ref.__name__.replace("Plugin", ""), class_ref)  # Load plugin (with name)
+
+        # LOAD WINDOWS
         WindowBase.set_mqtt(self._Mqtt)
         WindowBase.set_ui(self._Ui)
 
         self._windows = {}
         for module_name in windows.__all__:
-            module = importlib.import_module(f"windows.{module_name}")
+            module = importlib.import_module("windows." + module_name)
 
             # Dynamically load windows from the window folder that inherits from WindowBase
             for window_name in dir(module):
@@ -45,10 +64,23 @@ class Miniplayer:
 
         # Load and enable first window by default on start
         self._log.log("Loaded windows: " + str(list(self._windows.keys())), LogLevel.INF)
-        self.active_window_name = list(self._windows.keys())[1]  # Default to first window class
+        self._log.log("Loaded plugins: " + str(list(self._plugins.keys())), LogLevel.INF)
+        self._log.log("Enabled plugins: " + str(list(self._plugins.keys())), LogLevel.INF)
+        try:
+            self.active_window_name = list(self._windows.keys())[0]  # Default to first window class
+        except IndexError:  # Error handling for no windows found
+            self._log.log("No windows found!", LogLevel.ERR)
+            raise KeyboardInterrupt
         self._windows[self.active_window_name].start()
 
+    def load_plugin(self, name: str, plugin: type(PluginBase)):
+        self._log.log("Loading plugin: " + name, LogLevel.INF)
+        self._loading_info(name.lower())
+        self._plugins[name] = plugin()
+        self._plugins[name].enable()  # TODO: Enable plugins via settings (enables all for now), plugin settings?
+
     def load_window(self, name: str, window: type(WindowBase)):
+        self._log.log("Loading window: " + name, LogLevel.INF)
         self._loading_info(name.lower())
         self._windows[name] = window()
 
@@ -67,8 +99,10 @@ class Miniplayer:
 
         self._Ui.clear()
 
-        self._windows[self.active_window_name].update()
-        self._windows[self.active_window_name].draw()
+        self._windows[self.active_window_name].update()  # Only update active window
+        for plugin in self._plugins.values(): plugin.update()  # Update all plugins
+
+        self._windows[self.active_window_name].draw()  # Only draw active window
 
         self._display()
 
@@ -97,5 +131,7 @@ class Miniplayer:
 
         if self._Ui.get_info()[2] != 0 and self._Ui.get_info()[2] != 0 and self._Ui.get_info()[2] <= pg.time.get_ticks():
             self._Ui.clear_info()
+
+        self._Ui.apply_brightness()
 
         pg.display.update()
