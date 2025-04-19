@@ -15,7 +15,7 @@ class Miniplayer:
         self._Clock = pg.time.Clock()
 
         self._Mqtt = MqttClient(str(hex(get_mac())) + "V3", "192.168.1.205", "mosquitto", "bungeeboy12")
-        self._Ui = Ui((1280, 720), pg.FULLSCREEN)
+        self._Ui = Ui((1024, 600), pg.FULLSCREEN)
 
         timestamp = pg.time.get_ticks()
 
