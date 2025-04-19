@@ -15,7 +15,7 @@ class Miniplayer:
         self._Clock = pg.time.Clock()
 
         self._Mqtt = MqttClient(str(hex(get_mac())) + "V3", "homeassistant.local", "mosquitto", "bungeeboy12")
-        self._Ui = Ui((1280, 720), display=1)
+        self._Ui = Ui((1280, 720))
 
         timestamp = pg.time.get_ticks()
 
