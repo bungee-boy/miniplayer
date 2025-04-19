@@ -36,7 +36,7 @@ class Ui:
         # Screen anchor variables
         self.Width = size[0]
         self.Height = size[1]
-        self.Center = self.Width / 2, self.Height / 2
+        self.Center = self.Width // 2, self.Height // 2
         self.Top = 40
         self.Bottom = self.Height - 20
         self.Left = 20
@@ -48,12 +48,18 @@ class Ui:
         self.prev_mouse_pos = 0, 0
 
         self._info = '', 'Grey', 0  # Txt, Col, Time
-        self._curr_brightness = 255
+
+        # Brightness variables
+        self._curr_brightness = 255  # Default brightness
+        self._min_brightness = 10
         self._brightnessSurf = pg.surface.Surface((self.Width, self.Height)).convert_alpha()
 
         self.set_brightness(self._curr_brightness)
 
     def set_brightness(self, brightness: int) -> None:
+        if brightness < self._min_brightness:  # Apply min_brightness
+            brightness = self._min_brightness
+
         self._curr_brightness = brightness
         self._brightnessSurf.set_alpha(255 - self._curr_brightness)
 
