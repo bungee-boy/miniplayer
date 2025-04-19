@@ -242,6 +242,7 @@ class Ui:
 
     @staticmethod
     def load_image(path: str, size=(0, 0), keep_alpha=True, smooth_scale=True) -> pg.surface.Surface:
+        path = path.replace("\\", "/")
         img = pg.image.load(path)
 
         img = (pg.Surface.convert_alpha(img) if keep_alpha else pg.Surface.convert(img))
