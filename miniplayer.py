@@ -110,6 +110,7 @@ class Miniplayer:
 
     def end(self):
         self._windows[self.active_window_name].stop()
+        for plugin in self._plugins.values(): plugin.disable()  # Update all plugins
         self._Mqtt.disconnect()
         Log("Miniplayer").log("Stopped", LogLevel.INF)
         self._windows.clear()
