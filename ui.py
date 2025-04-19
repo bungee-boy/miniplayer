@@ -29,6 +29,8 @@ class Ui:
         pg.display.set_caption("Miniplayer V3")
         pg.display.set_icon(pg.image.load(self._Assets + 'icon.ico'))
 
+        pg.mouse.set_visible(False)
+
         Ui._Images['background'] = Ui.load_image(Ui._Assets + 'background.jpg', keep_alpha=False)
 
         # Screen anchor variables
