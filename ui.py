@@ -1,6 +1,7 @@
 ﻿from log import *
 from enum import Enum
 import pygame as pg
+from platform import system
 
 
 Colour = {
@@ -25,11 +26,13 @@ class Ui:
     _Images = {}
 
     def __init__(self, size: tuple[int, int], flags=0, display=0):
+        if system() == "Linux":
+            #pg.mouse.set_visible(False)
+            flags |= pg.FULLSCREEN
+
         self.Display = pg.display.set_mode(size, flags=flags, display=display)
         pg.display.set_caption("Miniplayer V3")
         pg.display.set_icon(pg.image.load(self._Assets + 'icon.ico'))
-
-        pg.mouse.set_visible(False)
 
         Ui._Images['background'] = Ui.load_image(Ui._Assets + 'background.jpg', keep_alpha=False)
 
